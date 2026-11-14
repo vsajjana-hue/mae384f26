@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script data-goatcounter="https://vjmae384rush.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 <title>Method Rush</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&family=STIX+Two+Text:ital@0;1&display=swap">
 <style>
@@ -175,7 +176,7 @@ h1{font-weight:700;letter-spacing:-.01em} h2{font-weight:600}
   <div><p class="muted" id="qdLabel">Daily Challenge</p><div class="big" id="qdScore">0 / 10</div><p id="qdMsg"></p></div>
   <div class="share" id="shareBox"></div>
   <div class="row"><button class="cta" id="copyBtn">Copy result</button><button class="ghost" data-home>Home</button></div>
-  <p class="muted" id="copyMsg">Paste it in the class Ed thread and compare with friends.</p>
+  <p class="muted" id="copyMsg">Paste it in the class Ed Discussion thread and compare with classmates.</p>
 </section>
 
 <!-- PREDICT -->
@@ -252,6 +253,7 @@ h1{font-weight:700;letter-spacing:-.01em} h2{font-weight:600}
 <script>
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},num(k){return +this.get(k)||0},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+function track(p){try{if(window.goatcounter&&window.goatcounter.count)window.goatcounter.count({path:p,title:p,event:true})}catch(e){}}
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -335,8 +337,8 @@ const BADGES=[['streak10','On fire','10 in a row'],['boom','Kaboom','Blow up Eul
 const has=k=>store.get('badge_'+k)==='1';
 function earn(k){if(has(k))return;store.set('badge_'+k,'1');const b=BADGES.find(x=>x[0]===k);const bonus=(k==='boom'||k==='lost')?5:0;if(bonus){store.set('xp',store.num('xp')+bonus)}
   const t=$('toast');t.textContent=`Badge unlocked: ${b[1]}`+(bonus?` (+${bonus} XP bounty)`:'');t.hidden=false;setTimeout(()=>t.hidden=true,4000);[0,4,7,12,16].forEach((s,i)=>tone(semi(s,523),0.3,'sine',0.09,i*0.07))}
-function award(xp,game,score){const today=new Date().toDateString(),y=new Date(Date.now()-864e5).toDateString(),last=store.get('lastDay');
-  if(last!==today){store.set('days',last===y?store.num('days')+1:1);store.set('dayxp',0);store.set('lastDay',today)}
+function award(xp,game,score){track('finish/'+game);const today=new Date().toDateString(),y=new Date(Date.now()-864e5).toDateString(),last=store.get('lastDay');
+  if(last!==today){store.set('days',last===y?store.num('days')+1:1);track('active-day/streak-'+Math.min(7,store.num('days')));store.set('dayxp',0);store.set('lastDay',today)}
   store.set('xp',store.num('xp')+xp);store.set('dayxp',store.num('dayxp')+xp);
   if(score>store.num('b_'+game))store.set('b_'+game,score);
   sCoin();const t=$('toast');t.textContent=`+${xp} XP`+(store.num('dayxp')>=50&&store.num('dayxp')-xp<50?' · daily goal reached!':'');t.hidden=false;setTimeout(()=>t.hidden=true,3500);
@@ -349,7 +351,7 @@ function refresh(){$('xp').textContent=store.num('xp');const today=new Date().to
   $('cbSub').textContent=due?`${due} question${due>1?'s':''} due for review.`:all?`Next review ${cbNext()}.`:'Questions you miss come back here later.';
   $('badges').innerHTML=BADGES.map(b=>`<span class="${has(b[0])?'got':''}" title="${b[2]}"><b>${b[1]}</b>${b[2]}</span>`).join('')}
 document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>{clearInterval(R.iv);clearTimeout(G.timer);show('home')});
-document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>({rush:startRush,lab:startLab,golf:startGolf,mat:startMat,ear:startEar,daily:startDaily,comeback:startComeback,predict:startPredict})[b.dataset.go]());
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{track('start/'+b.dataset.go);({rush:startRush,lab:startLab,golf:startGolf,mat:startMat,ear:startEar,daily:startDaily,comeback:startComeback,predict:startPredict})[b.dataset.go]()});
 
 /* ---------- comeback queue (spaced repetition: 1, 3, 7 days) ---------- */
 const DAY=864e5,GAPS=[1,3,7];
@@ -375,14 +377,14 @@ function startComeback(){const l=cbDue();if(!l.length)return;Object.assign(Q,{mo
 function qzAsk(){const q=Q.list[Q.i];Q.lock=false;$('qzProg').textContent=`${Q.i+1} / ${Q.list.length}`;$('qzScore').textContent=Q.right;$('qzCard').className='card';$('qzTag').textContent=q.tag;$('qzQ').innerHTML=q.q;$('qzWhy').textContent='';putSheet('qzSheet');$('qzNext').hidden=true;
   const box=$('qzAns');box.innerHTML='';q.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>qzAnswer(o,b);box.appendChild(b)})}
 function qzAnswer(o,btn){if(Q.lock)return;Q.lock=true;const q=Q.list[Q.i],ok=o===q.a;[...$('qzAns').children].forEach(b=>{b.disabled=true;if(b.textContent===q.a)b.classList.add('right')});
-  Q.grid.push(ok?1:0);if(ok){Q.right++;sGood(Q.right);$('qzCard').classList.add('good')}else{btn.classList.add('wrong');sBad();$('qzCard').classList.add('bad');if(Q.mode==='daily')cbAdd(q)}
+  Q.grid.push(ok?1:0);if(ok){Q.right++;sGood(Q.right);$('qzCard').classList.add('good')}else{btn.classList.add('wrong');sBad();$('qzCard').classList.add('bad');track('miss/'+q.tag);if(Q.mode==='daily')cbAdd(q)}
   if(Q.mode==='comeback')cbResult(q,ok);$('qzWhy').textContent=q.why;putSheet('qzSheet',q.sheet);$('qzScore').textContent=Q.right;$('qzNext').hidden=false;$('qzNext').textContent=Q.i+1<Q.list.length?'Next':'Finish'}
 $('qzNext').onclick=()=>{Q.i++;if(Q.i<Q.list.length)return qzAsk();
-  if(Q.mode==='daily'){store.set('daily_'+dayKey(),Q.right);store.set('dailyGrid_'+dayKey(),JSON.stringify(Q.grid));award(Q.right*3,'daily',0);earn('daily');showShare(Q.right,Q.grid)}
+  if(Q.mode==='daily'){track('daily-score/'+Q.right);store.set('daily_'+dayKey(),Q.right);store.set('dailyGrid_'+dayKey(),JSON.stringify(Q.grid));award(Q.right*3,'daily',0);earn('daily');showShare(Q.right,Q.grid)}
   else{award(Q.right*2,'comeback',0);show('home')}};
 function showShare(n,grid){show('qzDone');$('qdLabel').textContent='Daily Challenge #'+dailyNum();$('qdScore').textContent=n+' / 10';
   $('qdMsg').textContent=n===10?'Perfect day.':n>=8?'Strong. Missed ones go to Comeback.':'Missed ones are waiting in Comeback.';
-  $('shareBox').textContent=`MAE 384 Method Rush · Daily #${dailyNum()}\n${n}/10  ${grid.map(g=>g?'🟩':'🟥').join('')}`;$('copyMsg').textContent='Paste it in the class Ed thread and compare with friends.'}
+  $('shareBox').textContent=`MAE 384 Method Rush · Daily #${dailyNum()}\n${n}/10  ${grid.map(g=>g?'🟩':'🟥').join('')}`;$('copyMsg').textContent='Paste it in the class Ed Discussion thread and compare with classmates.'}
 $('copyBtn').onclick=()=>{const t=$('shareBox').textContent;const sel=()=>{const r=document.createRange();r.selectNodeContents($('shareBox'));const s=getSelection();s.removeAllRanges();s.addRange(r);$('copyMsg').textContent='Selected. Copy it with your keyboard or long-press.'};
   try{navigator.clipboard.writeText(t).then(()=>$('copyMsg').textContent='Copied.',sel)}catch(e){sel()}};
 
@@ -486,7 +488,7 @@ function ask(){R.q=nextQ();R.lock=false;$('card').className='card';$('tag').text
 function answer(o,btn){if(R.lock||R.t<=0)return;R.lock=true;R.total++;const ok=o===R.q.a;
   [...$('answers').children].forEach(b=>{b.disabled=true;if(b.textContent===R.q.a)b.classList.add('right')});
   if(ok){R.streak++;R.best=Math.max(R.best,R.streak);R.right++;const m0=mult();R.score+=100*mult();if(mult()>m0)sPower(mult()*2);$('card').classList.add('good');sGood(R.streak);if(R.streak>=10)earn('streak10');hud();setTimeout(ask,380)}
-  else{btn.classList.add('wrong');R.missed.push(R.q);cbAdd(R.q);R.streak=0;R.t=Math.max(0,R.t-3);$('card').classList.add('bad');$('why').textContent=R.q.why;putSheet('rushSheet',R.q.sheet);sBad();hud();setTimeout(()=>{if(R.t>0&&!$('rush').hidden)ask()},2300)}}
+  else{btn.classList.add('wrong');R.missed.push(R.q);cbAdd(R.q);track('miss/'+R.q.tag);R.streak=0;R.t=Math.max(0,R.t-3);$('card').classList.add('bad');$('why').textContent=R.q.why;putSheet('rushSheet',R.q.sheet);sBad();hud();setTimeout(()=>{if(R.t>0&&!$('rush').hidden)ask()},2300)}}
 function endRush(){clearInterval(R.iv);MUS.intense=false;if($('rush').hidden)return;tone(98,0.5,'sawtooth',0.12);setTimeout(sFanfare,500);const best=store.num('b_rush');award(Math.round(R.score/50),'rush',R.score);show('results');$('finalScore').textContent=R.score;const acc=R.total?Math.round(R.right/R.total*100):0;
   $('sCorrect').textContent=R.right;$('sAcc').textContent=acc+'%';$('sStreak').textContent=R.best;
   $('verdict').textContent=(R.score>best?'New personal best! ':`Personal best: ${best}. `)+`+${Math.round(R.score/50)} XP. `+(R.score>=2500?'Exam-ready pace.':R.score>=1200?'Solid. Chase a longer streak.':'Keep the sheet open and go again.');
