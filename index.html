@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Method Rush</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&family=STIX+Two+Text:ital@0;1&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet. Home is a path of five mini-games with XP and a day streak; each game is one prompt area plus thumb-sized controls. Single dark look by choice. */
+:root{
+  --bg:#141b30; --panel:#222d4c; --panel2:#2d3a61; --ink:#f4f6fb; --muted:#9aa6c2;
+  --sun:#ffd640; --go:#35c98a; --stop:#ef5350; --heat:#f08228; --sea:#27b3b3; --plum:#9a6fe0;
+  --display:"Fredoka","Segoe UI",system-ui,sans-serif; --body:"Nunito",system-ui,sans-serif; --math:"STIX Two Text","Cambria Math",serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;box-sizing:border-box}
+*{box-sizing:border-box}
+.app{max-width:560px;margin:0 auto;height:100%;display:flex;flex-direction:column}
+[hidden]{display:none!important}
+.screen{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0;overflow:auto}
+h1{font-family:var(--display);font-size:clamp(2rem,9vw,3rem);line-height:1;margin:0;letter-spacing:-.02em}
+h1 span{color:var(--sun)}
+h2{font-family:var(--display);font-size:1.4rem;margin:0}
+p{margin:0;line-height:1.45}
+.muted{color:var(--muted)}
+button{font:inherit;color:inherit;border:0;cursor:pointer;border-radius:14px}
+button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.top{display:flex;gap:10px;align-items:stretch}
+.top>div{background:var(--panel);border-radius:14px;padding:10px 12px;flex:1}
+.top b{font-family:var(--display);font-size:1.35rem;display:block;font-variant-numeric:tabular-nums}
+.goal{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-top:6px}
+.goal i{display:block;height:100%;background:var(--go);width:0}
+.path{display:flex;flex-direction:column;gap:10px}
+.node{background:var(--panel);padding:14px 16px;text-align:left;display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center}
+.node:hover{background:var(--panel2)}
+.node .dot{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:1.3rem;color:#10162a;background:var(--c)}
+.node b{font-family:var(--display);font-size:1.15rem;display:block}
+.node small{color:var(--muted)}
+.node .best{font-family:var(--display);font-variant-numeric:tabular-nums;color:var(--sun)}
+.hud{display:flex;gap:10px;align-items:center;font-family:var(--display);font-variant-numeric:tabular-nums}
+.hud .score{font-size:1.4rem;flex:1}
+.pill{background:var(--panel);padding:6px 12px;border-radius:999px;font-size:.95rem}
+.pill.hot{background:var(--heat);color:#1b1205}
+.bar{height:10px;background:var(--panel);border-radius:999px;overflow:hidden;flex:none}
+.bar i{display:block;height:100%;background:var(--sun);width:100%;transition:width .1s linear}
+.card{background:var(--panel);border-radius:18px;padding:18px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;min-height:130px}
+.card .tag{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sea);font-weight:600}
+.card .q{font-family:var(--display);font-size:clamp(1.1rem,5vw,1.45rem);line-height:1.25;text-wrap:balance}
+.card.good{outline:4px solid var(--go)} .card.bad{outline:4px solid var(--stop)}
+.why{color:var(--sun);font-size:.95rem;min-height:2.9em}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.answers button{background:var(--panel2);padding:14px 10px;min-height:64px;font-weight:600;font-size:1rem;line-height:1.2}
+.answers button:hover{filter:brightness(1.15)}
+.answers button.right{background:var(--go);color:#062414}
+.answers button.wrong{background:var(--stop)}
+.answers button:disabled{cursor:default}
+.cta{background:var(--heat);color:#1b1205;font-family:var(--display);font-weight:700;font-size:1.1rem;padding:14px}
+.cta:disabled{opacity:.45;cursor:default}
+.ghost{background:var(--panel);padding:12px}
+.row{display:flex;gap:10px} .row>*{flex:1}
+.big{font-family:var(--display);font-size:3.2rem;line-height:1;color:var(--sun);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stats div{background:var(--panel);border-radius:14px;padding:12px;text-align:center}
+.stats b{display:block;font-family:var(--display);font-size:1.4rem}
+.missed{display:flex;flex-direction:column;gap:8px}
+.missed div{background:var(--panel);border-radius:12px;padding:12px;border-left:4px solid var(--stop)}
+.missed small{color:var(--muted);display:block;margin-top:4px}
+canvas{width:100%;background:var(--panel);border-radius:16px;display:block;touch-action:manipulation}
+.readout{display:flex;justify-content:space-between;gap:8px;font-family:var(--display);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.status{font-weight:700} .ok{color:var(--go)} .warn{color:var(--sun)} .boom{color:var(--stop)}
+input[type=range]{width:100%;accent-color:var(--heat);height:36px}
+.ode{font-family:var(--display);font-size:clamp(1.1rem,5vw,1.4rem);background:var(--panel);border-radius:16px;padding:16px;text-align:center}
+.slots{display:grid;grid-template-columns:auto repeat(3,1fr) auto;gap:8px;align-items:center;font-family:var(--display);font-size:1.3rem}
+.mrow{display:contents}
+.cell{background:var(--panel);border-radius:10px;min-height:52px;display:grid;place-items:center;color:var(--muted)}
+button.cell{color:var(--ink);background:var(--panel2);outline:2px dashed var(--muted);outline-offset:-2px;font-size:1.3rem;font-family:var(--display)}
+button.cell.fill{outline:2px solid var(--sun)}
+button.cell.right{background:var(--go);color:#062414;outline:0} button.cell.wrong{background:var(--stop);outline:0}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.chips button{background:var(--panel2);min-height:56px;font-family:var(--display);font-size:1.3rem}
+.chips button:disabled{opacity:.3}
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;background:var(--panel);border-radius:16px;padding:14px}
+.bars i{flex:1;background:var(--plum);border-radius:6px 6px 0 0;min-height:4px;opacity:.35;transition:opacity .1s}
+.bars i.on{opacity:1}
+.toast{background:var(--go);color:#062414;border-radius:12px;padding:10px 14px;font-weight:600}
+.mission{background:var(--panel);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.mission .ends{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted)}
+.track{position:relative;height:10px;background:var(--panel2);border-radius:99px}
+.track i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--sea),var(--heat));border-radius:99px;width:0}
+.track b{position:absolute;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--sun);box-shadow:0 0 0 4px rgba(255,214,64,.25);left:0}
+.node.special{border:2px solid var(--c)}
+.node:disabled{opacity:.55;cursor:default}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.badges span{background:var(--panel);border-radius:12px;padding:8px 6px;text-align:center;font-size:.75rem;line-height:1.2;color:var(--muted);opacity:.45}
+.badges span.got{opacity:1;color:var(--ink);background:var(--panel2);outline:2px solid var(--sun);outline-offset:-2px}
+.badges span b{display:block;font-family:var(--display);font-size:1.05rem;color:var(--sun)}
+.share{background:var(--panel);border-radius:14px;padding:14px;font-family:var(--display);white-space:pre-wrap;line-height:1.4;user-select:all}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opts button{background:var(--panel2);padding:14px;text-align:left;font-weight:600;min-height:54px}
+.opts button.right{background:var(--go);color:#062414} .opts button.wrong{background:var(--stop)}
+.opts button:disabled{cursor:default}
+@media (prefers-reduced-motion:reduce){.bar i,.bars i{transition:none}}
+
+/* polish: soft glow background, chunky pressable buttons, gradient cards */
+body{background:radial-gradient(900px 520px at 0% -10%,#2b3d78 0%,transparent 60%),radial-gradient(700px 480px at 110% 0%,#4a2e72 0%,transparent 55%),var(--bg);background-attachment:fixed;font-weight:500;-webkit-font-smoothing:antialiased}
+h1{font-weight:700;letter-spacing:-.01em} h2{font-weight:600}
+.node,.answers button,.opts button,.chips button,.ghost,.cta,.top>div,.mission,.stats div,.card,.badges span,.share,.ode,.bars,canvas{box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 8px 22px rgba(4,8,20,.35)}
+.node,.answers button,.opts button,.chips button,.ghost,.cta{border-bottom:4px solid rgba(0,0,0,.32);transition:transform .08s,filter .15s,border-width .08s}
+.node:active:not(:disabled),.answers button:active:not(:disabled),.opts button:active:not(:disabled),.chips button:active:not(:disabled),.ghost:active,.cta:active:not(:disabled){transform:translateY(3px);border-bottom-width:1px}
+.node{border-radius:20px;background:linear-gradient(180deg,#2a3659,var(--panel))}
+.node b{font-weight:600;letter-spacing:.005em}
+.node .dot{box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 0 4px rgba(255,255,255,.06)}
+.card{background:linear-gradient(180deg,#2b3860,var(--panel))}
+.card .q{font-weight:600}
+.cta{border-radius:16px;letter-spacing:.02em;text-transform:uppercase;font-weight:600}
+.ghost{border-radius:16px;font-weight:700}
+.answers button,.opts button{border-radius:16px;font-weight:700}
+.pill{font-weight:600}
+.big{font-weight:700}
+.ctx{display:flex;gap:10px;align-items:center;background:rgba(39,179,179,.12);border:1px solid rgba(39,179,179,.35);color:#bdeeee;border-radius:14px;padding:9px 12px;font-weight:700;font-size:.95rem;line-height:1.3}
+.ctx i{font-style:normal;font-size:1.25rem}
+.sheet{border-left:4px solid var(--sun);background:rgba(255,214,64,.08);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.sheet span{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sun);font-weight:800}
+.sheet code{font-family:var(--math);font-size:1.08rem;color:var(--ink);line-height:1.35;white-space:normal}
+.sheet.off{border-left-color:var(--plum);background:rgba(154,111,224,.1)} .sheet.off span{color:#c7a8ff}
+.hud .score{font-size:clamp(1.05rem,5.2vw,1.4rem);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.hud{gap:6px}
+.hud .snd{flex:none;width:34px;height:34px;border-radius:50%;background:var(--panel);font-size:1rem;padding:0;border-bottom:3px solid rgba(0,0,0,.3)}
+.audio{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.audio button{background:var(--panel);padding:8px 14px;border-radius:999px;font-weight:700;font-size:.9rem;border-bottom:3px solid rgba(0,0,0,.3)}
+.audio button[aria-pressed=false]{opacity:.55}
+.audio small{color:var(--muted);font-size:.8rem}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+@keyframes pop{0%{transform:scale(.96)}60%{transform:scale(1.02)}100%{transform:scale(1)}}
+.card.good,.toast{animation:pop .25s ease-out}
+@media (prefers-reduced-motion:reduce){.card.good,.toast{animation:none}}
+</style>
+
+</head><body>
+<div class="app">
+<!-- HOME -->
+<section class="screen" id="home">
+  <div class="head"><div><p class="muted">MAE 384 · Numerical Methods</p><h1>Method <span>Rush</span></h1></div><div class="audio"><button id="musBtn" aria-pressed="true">♪ Music</button><button id="sfxBtn" aria-pressed="true">🔊 Sounds</button></div></div><p class="audio"><small id="nowPlaying">Tap anywhere to start the music. Each theme plays the digits of a number: e at home, π in Rush, √2 while you think.</small></p>
+  <div class="top">
+    <div><span class="muted">Total XP</span><b id="xp">0</b></div>
+    <div><span class="muted">Day streak</span><b id="days">0</b></div>
+    <div><span class="muted">Today: <span id="dayxp">0</span> / 50 XP</span><div class="goal"><i id="goalbar"></i></div></div>
+  </div>
+  <div class="mission"><div class="ends"><span>Earth</span><span id="km">0 million km traveled</span><span>Mars</span></div><div class="track"><i id="trackfill"></i><b id="ship"></b></div><span class="muted" style="font-size:.85rem">Mission to Mars: every XP moves your ship 250,000 km. 900 XP lands you.</span></div>
+  <div class="toast" id="toast" hidden></div>
+  <div class="path">
+    <button class="node special" style="--c:var(--sun)" data-go="daily"><span class="dot">D</span><span><b>Daily Challenge <span id="dailyNum"></span></b><small id="dailySub">Same 10 questions for everyone today.</small></span><span class="best" id="dailyRes"></span></button>
+    <button class="node special" style="--c:var(--stop)" data-go="comeback" id="cbNode"><span class="dot">↺</span><span><b>Comeback Questions</b><small id="cbSub">Questions you missed return here.</small></span><span class="best" id="cbCount"></span></button>
+    <button class="node" style="--c:var(--heat)" data-go="rush"><span class="dot">1</span><span><b>Method Rush</b><small>60 seconds. Tap the right method.</small></span><span class="best" id="b_rush">0</span></button>
+    <button class="node" style="--c:var(--sea)" data-go="lab"><span class="dot">2</span><span><b>Stability Pilot</b><small>Push the step size to the edge. Hear it blow up.</small></span><span class="best" id="b_lab">0</span></button>
+    <button class="node" style="--c:var(--sun)" data-go="golf"><span class="dot">3</span><span><b>Newton Golf</b><small>Pick the first guess. Fewest iterations wins.</small></span><span class="best" id="b_golf">0</span></button>
+    <button class="node" style="--c:var(--go)" data-go="mat"><span class="dot">4</span><span><b>Build the Matrix</b><small>Turn a third-order ODE into the last row of A.</small></span><span class="best" id="b_mat">0</span></button>
+    <button class="node" style="--c:var(--plum)" data-go="ear"><span class="dot">5</span><span><b>Order by Ear</b><small>Listen to the error fall. Name the method.</small></span><span class="best" id="b_ear">0</span></button>
+    <button class="node" style="--c:#7fb3ff" data-go="predict"><span class="dot">6</span><span><b>Predict It</b><small>Watch, freeze, predict what happens next.</small></span><span class="best" id="b_predict">0</span></button>
+  </div>
+  <h2>Badges</h2>
+  <div class="badges" id="badges"></div>
+  <p class="muted">Keep your equation sheet open while you play. Tip: use your browser's "Add to Home Screen" to keep this like an app.</p>
+</section>
+
+<!-- QUIZ (daily + comeback) -->
+<section class="screen" id="quiz" hidden>
+  <div class="hud"><span class="score" id="qzTitle">Daily Challenge</span><span class="pill" id="qzProg">1 / 10</span><span class="pill" id="qzScore">0</span></div>
+  <div class="card" id="qzCard"><span class="tag" id="qzTag"></span><div class="q" id="qzQ"></div><div class="why" id="qzWhy"></div><div id="qzSheet"></div></div>
+  <div class="answers" id="qzAns"></div>
+  <div class="row"><button class="cta" id="qzNext" hidden>Next</button><button class="ghost" data-home>Home</button></div>
+</section>
+
+<!-- QUIZ DONE -->
+<section class="screen" id="qzDone" hidden>
+  <div><p class="muted" id="qdLabel">Daily Challenge</p><div class="big" id="qdScore">0 / 10</div><p id="qdMsg"></p></div>
+  <div class="share" id="shareBox"></div>
+  <div class="row"><button class="cta" id="copyBtn">Copy result</button><button class="ghost" data-home>Home</button></div>
+  <p class="muted" id="copyMsg">Paste it in the class Ed thread and compare with friends.</p>
+</section>
+
+<!-- PREDICT -->
+<section class="screen" id="predict" hidden>
+  <div class="hud"><span class="score">Predict It</span><span class="pill" id="prRound">1 / 6</span><span class="pill" id="prScore">0</span></div>
+  <p id="prPrompt"></p>
+  <canvas id="pv" width="1000" height="640"></canvas>
+  <div class="opts" id="prOpts"></div>
+  <p class="why" id="prWhy"></p><div id="prSheet"></div>
+  <div class="row"><button class="cta" id="prNext" hidden>Next</button><button class="ghost" data-home>Home</button></div>
+</section>
+
+<!-- RUSH -->
+<section class="screen" id="rush" hidden>
+  <div class="hud"><span class="score" id="score">0</span><span class="pill" id="mult">×1</span><span class="pill" id="streak">streak 0</span><span class="pill" id="time">60</span></div>
+  <div class="bar"><i id="timebar"></i></div>
+  <div class="card" id="card"><span class="tag" id="tag"></span><div class="q" id="q"></div><div class="why" id="why"></div><div id="rushSheet"></div></div>
+  <div class="answers" id="answers"></div>
+</section>
+
+<!-- RESULTS (rush) -->
+<section class="screen" id="results" hidden>
+  <div><p class="muted">Time!</p><div class="big" id="finalScore">0</div><p id="verdict"></p></div>
+  <div class="stats"><div><b id="sCorrect">0</b><span class="muted">correct</span></div><div><b id="sAcc">0%</b><span class="muted">accuracy</span></div><div><b id="sStreak">0</b><span class="muted">best streak</span></div></div>
+  <div class="row"><button class="cta" id="again">Play again</button><button class="ghost" data-home>Home</button></div>
+  <h2 id="missedHead">Review what you missed</h2>
+  <div class="missed" id="missed"></div>
+</section>
+
+<!-- LAB -->
+<section class="screen" id="lab" hidden>
+  <div class="hud"><span class="score">Stability Pilot</span><span class="pill" id="labRound">1 / 3</span><span class="pill" id="labScore">0</span></div>
+  <p class="ctx" id="labCtx"></p><p>Explicit Euler on <b id="labOde">y′ = −20y</b>. Slide to the <b>largest step size that still doesn't blow up</b>, then lock it in and listen.</p>
+  <canvas id="cv" width="1000" height="600"></canvas>
+  <div class="readout"><span>h = <span id="hVal">0.020</span></span><span>G = 1 + λh = <span id="gVal">0.60</span></span><span class="status ok" id="stat">stable</span></div>
+  <input type="range" id="hSlider" min="0.002" max="0.3" step="0.001" value="0.02" aria-label="Step size h">
+  <div class="row"><button class="cta" id="lock">Lock it in</button><button class="ghost" data-home>Home</button></div>
+  <p class="why" id="labWhy"></p><div id="labSheet"></div>
+</section>
+
+<!-- GOLF -->
+<section class="screen" id="golf" hidden>
+  <div class="hud"><span class="score">Newton Golf</span><span class="pill" id="golfHole">hole 1 / 3</span><span class="pill" id="golfScore">0</span></div>
+  <p class="ctx" id="golfCtx"></p><p>Find a root of <b id="golfF"></b>. <b>Tap the graph</b> to choose your first guess x⁽⁰⁾. Each Newton iteration is a stroke.</p>
+  <canvas id="gv" width="1000" height="640"></canvas>
+  <div class="readout"><span>strokes: <span id="gStrokes">0</span></span><span>x = <span id="gX">–</span></span><span>|f(x)| = <span id="gErr">–</span></span></div>
+  <div class="row"><button class="cta" id="golfNext" disabled>Next hole</button><button class="ghost" data-home>Home</button></div>
+  <p class="why" id="golfWhy">Hint: a guess where the curve is flat (f′ ≈ 0) sends the ball far away.</p><div id="golfSheet"></div>
+</section>
+
+<!-- MATRIX -->
+<section class="screen" id="mat" hidden>
+  <div class="hud"><span class="score">Build the Matrix</span><span class="pill" id="matRound">1 / 5</span><span class="pill" id="matScore">0</span></div>
+  <p class="ctx" id="matCtx"></p><p>With x₁ = y, x₂ = y′, x₃ = y″, write the system as x′ = Ax + b. Fill the <b>last row of A</b>.</p>
+  <div class="ode" id="matOde"></div>
+  <div class="slots" id="slots"></div>
+  <div class="chips" id="chips"></div>
+  <div class="row"><button class="cta" id="matCheck" disabled>Check</button><button class="ghost" data-home>Home</button></div>
+  <p class="why" id="matWhy"></p><div id="matSheet"></div>
+</section>
+
+<!-- EAR -->
+<section class="screen" id="ear" hidden>
+  <div class="hud"><span class="score">Order by Ear</span><span class="pill" id="earRound">1 / 5</span><span class="pill" id="earScore">0</span></div>
+  <p class="ctx" id="earCtx"></p><p>Each tone is the error after halving the step size. The faster the pitch falls, the higher the order. <b>Which method is it?</b></p>
+  <div class="bars" id="bars"></div>
+  <button class="ghost" id="earPlay">Play it again</button>
+  <div class="answers" id="earAns"></div>
+  <p class="why" id="earWhy"></p><div id="earSheet"></div>
+  <button class="ghost" data-home>Home</button>
+</section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},num(k){return +this.get(k)||0},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* ---------- sound: every effect is driven by the numbers ---------- */
+let ac=null,master,sfxBus,musBus;
+const SND={sfx:store.get('sfx')!=='0',music:store.get('music')!=='0'};
+function audio(){if(ac)return ac;try{ac=new (window.AudioContext||window.webkitAudioContext)();const comp=ac.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=4;comp.connect(ac.destination);
+  master=ac.createGain();master.gain.value=0.9;master.connect(comp);sfxBus=ac.createGain();sfxBus.gain.value=SND.sfx?1:0;sfxBus.connect(master);musBus=ac.createGain();musBus.gain.value=0;musBus.connect(master);
+  NOISE=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=NOISE.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}catch(e){ac=null}return ac}
+let NOISE=null;
+/* every effect goes through the sound bus; the music dips briefly under it so feedback is always heard */
+function duck(){if(!ac||!MUS.cur)return;const t=ac.currentTime,g=musBus.gain;g.cancelScheduledValues(t);g.setTargetAtTime(MUS.level*0.35,t,0.015);g.setTargetAtTime(MUS.level,t+0.3,0.2)}
+function tone(f,d=0.12,type='triangle',v=0.15,at=0,noDuck){if(!SND.sfx||!audio())return;try{const t=ac.currentTime+at,o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.value=Math.max(40,Math.min(6000,f));g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);o.connect(g).connect(sfxBus);o.start(t);o.stop(t+d+0.02);if(!noDuck)duck()}catch(e){}}
+function noise(d,freq,type='bandpass',v=0.12,at=0,bus,sweepTo){if(!audio())return;const t=ac.currentTime+at,src=ac.createBufferSource(),fl=ac.createBiquadFilter(),g=ac.createGain();src.buffer=NOISE;fl.type=type;fl.frequency.setValueAtTime(freq,t);if(sweepTo)fl.frequency.exponentialRampToValueAtTime(sweepTo,t+d);fl.Q.value=type==='bandpass'?1.2:0.7;
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);src.connect(fl).connect(g).connect(bus||sfxBus);src.start(t,Math.random()*0.5);src.stop(t+d+0.02)}
+const semi=(n,base=440)=>base*Math.pow(2,n/12);
+const sGood=n=>{tone(semi(Math.min(n,12)*2,392),0.1);tone(semi(Math.min(n,12)*2+7,392),0.16,'triangle',0.15,0.07)};
+const sBad=()=>tone(130,0.28,'square',0.12);
+const chord=()=>[0,4,7,12].forEach((s,i)=>tone(semi(s,523),0.5,'sine',0.1,i*0.05));
+/* extra effects */
+const sTap=()=>{if(SND.sfx)tone(1250,0.035,'sine',0.035,0,true)};
+const sWhoosh=()=>{if(SND.sfx)noise(0.35,500,'bandpass',0.09,0,null,3500)};
+const sCoin=()=>{tone(988,0.09,'square',0.06);tone(1319,0.3,'square',0.06,0.08)};
+const sPower=n=>[0,4,7,12].forEach((k,i)=>tone(semi(k+n,523),0.12,'square',0.05,i*0.05));
+const sTick=hi=>tone(hi?1760:1320,0.05,'square',0.05,0,true);
+const sFall=()=>{if(!SND.sfx||!audio())return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(1400,t);o.frequency.exponentialRampToValueAtTime(160,t+0.9);g.gain.setValueAtTime(0.1,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.95);o.connect(g).connect(sfxBus);o.start(t);o.stop(t+1);duck()};
+const sPlop=()=>{tone(180,0.15,'sine',0.25);noise(0.12,900,'lowpass',0.12,0.03)};
+const sFanfare=()=>[[0,0],[4,.12],[7,.24],[12,.36],[7,.6],[12,.72]].forEach(([k,t],i)=>tone(semi(k,523),i>4?0.8:0.18,'square',0.06,t));
+const sLand=()=>{sFanfare();[0,7,12,16,19,24].forEach((k,i)=>tone(semi(k,262),1.2,'triangle',0.06,0.9+i*0.06))};
+
+/* ---------- background music: synthesized live; each melody spells out the digits of a constant ---------- */
+const PENTA=[0,3,5,7,10];
+const TRACKS={
+ home:{name:'digits of e',bpm:82,root:57,digits:'2718281828459045235360287471352662497757',prog:[[0,3,7,10],[-4,0,3,7],[3,7,10,14],[-2,2,5,9]],drums:'lofi',lvl:0.5,lead:'triangle'},
+ game:{name:'digits of π',bpm:124,root:50,digits:'3141592653589793238462643383279502884197',prog:[[0,3,7,12],[-4,0,3,8],[-7,-3,0,5],[-2,2,5,10]],drums:'drive',lvl:0.42,lead:'square'},
+ think:{name:'digits of √2',bpm:92,root:55,digits:'1414213562373095048801688724209698078569',prog:[[0,4,7,11],[5,9,12,16],[-3,0,4,7],[2,5,9,12]],drums:'tick',lvl:0.38,lead:'sine'}
+};
+const MUS={cur:null,step:0,next:0,iv:0,level:0,intense:false};
+const midi=m=>440*Math.pow(2,(m-69)/12);
+function mNote(f,t,d,type,v,cut){const o=ac.createOscillator(),g=ac.createGain(),fl=ac.createBiquadFilter();o.type=type;o.frequency.value=f;fl.type='lowpass';fl.frequency.value=cut||2400;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+Math.min(0.02,d/4));g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(fl).connect(g).connect(musBus);o.start(t);o.stop(t+d+0.05)}
+function mPad(fs,t,d){fs.forEach(f=>[-6,6].forEach(c=>{const o=ac.createOscillator(),g=ac.createGain(),fl=ac.createBiquadFilter();o.type='triangle';o.frequency.value=f;o.detune.value=c;fl.type='lowpass';fl.frequency.value=900;
+  g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.022,t+d*0.3);g.gain.linearRampToValueAtTime(0.0001,t+d);o.connect(fl).connect(g).connect(musBus);o.start(t);o.stop(t+d+0.05)}))}
+function mKick(t,v){const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(42,t+0.18);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.28);o.connect(g).connect(musBus);o.start(t);o.stop(t+0.3)}
+function mStep(tr,k,t){const sp=60/tr.bpm/4,bar=Math.floor(k/16)%tr.prog.length,st=k%16,ch=tr.prog[bar];
+  if(st===0)mPad(ch.map(c=>midi(tr.root+12+c)),t,sp*16);
+  // bass
+  const bassHit=tr.drums==='drive'?st%2===0:tr.drums==='lofi'?(st===0||st===7||st===10):(st===0||st===8);
+  if(bassHit)mNote(midi(tr.root-12+ch[0]+(tr.drums==='drive'&&st%4===2?12:0)),t,sp*(tr.drums==='drive'?1.6:3.5),'sawtooth',0.07,tr.drums==='drive'?700:420);
+  // lead: one digit per eighth note; 0 is a rest
+  if(st%2===0){const i=Math.floor(k/2)%tr.digits.length,dg=+tr.digits[i];
+    if(dg&&!(tr.drums!=='drive'&&st%4===2&&dg<3)){const n=tr.root+12+PENTA[dg%5]+12*Math.floor(dg/5)+(ch[0]<-3?-2:0);mNote(midi(n),t,sp*(tr.drums==='drive'?1.8:3),tr.lead,tr.lead==='square'?0.035:0.06,tr.lead==='square'?1800:3000)}}
+  // drums
+  if(tr.drums==='lofi'){if(st===0||st===10)mKick(t,0.32);if(st===4||st===12)noise(0.12,1800,'bandpass',0.07,t-ac.currentTime,musBus);if(st%2===0)noise(0.03,8000,'highpass',0.03,t-ac.currentTime,musBus)}
+  if(tr.drums==='drive'){if(st%4===0)mKick(t,0.42);if(st===4||st===12)noise(0.14,1600,'bandpass',0.1,t-ac.currentTime,musBus);if(st%4===2||(MUS.intense&&st%2===1))noise(0.035,8500,'highpass',0.045,t-ac.currentTime,musBus)}
+  if(tr.drums==='tick'&&(st===4||st===12))noise(0.025,6000,'highpass',0.025,t-ac.currentTime,musBus)}
+function musicTick(){if(!MUS.cur||!ac)return;const tr=TRACKS[MUS.cur],sp=60/tr.bpm/4*(MUS.intense?0.9:1);while(MUS.next<ac.currentTime+0.15){try{mStep(tr,MUS.step,MUS.next)}catch(e){}MUS.next+=sp;MUS.step++}}
+function setMusic(name){if(!audio())return;if(!SND.music)name=null;if(name===MUS.cur)return;const t=ac.currentTime,g=musBus.gain;g.cancelScheduledValues(t);g.setTargetAtTime(0,t,0.08);
+  MUS.cur=name;MUS.intense=false;if(!name){return}MUS.level=TRACKS[name].lvl;MUS.step=0;MUS.next=t+0.3;g.setTargetAtTime(MUS.level,t+0.3,0.4);if(!MUS.iv)MUS.iv=setInterval(musicTick,25);
+  $('nowPlaying').textContent='♪ Now playing: '+TRACKS[name].name+'. Every melody note is the next digit.'}
+const SCREEN_MUSIC={home:'home',results:'home',qzDone:'home',rush:'game',quiz:'game',lab:'think',golf:'think',mat:'think',predict:'think',ear:null};
+let curScreen='home';
+function syncAudioBtns(){document.querySelectorAll('#musBtn,.snd.m').forEach(b=>{b.setAttribute('aria-pressed',SND.music);if(b.classList.contains('snd'))b.textContent=SND.music?'♪':'♪̸'});
+  document.querySelectorAll('#sfxBtn,.snd.s').forEach(b=>{b.setAttribute('aria-pressed',SND.sfx);if(b.classList.contains('snd'))b.textContent=SND.sfx?'🔊':'🔇'})}
+function toggleMusic(){SND.music=!SND.music;store.set('music',SND.music?'1':'0');audio();setMusic(SND.music?SCREEN_MUSIC[curScreen]:null);if(!SND.music)$('nowPlaying').textContent='Music off.';syncAudioBtns()}
+function toggleSfx(){SND.sfx=!SND.sfx;store.set('sfx',SND.sfx?'1':'0');if(audio())sfxBus.gain.value=SND.sfx?1:0;syncAudioBtns()}
+document.querySelectorAll('.hud').forEach(h=>{h.insertAdjacentHTML('beforeend','<button class="snd m" aria-label="Music on or off">♪</button><button class="snd s" aria-label="Sound effects on or off">🔊</button>')});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='musBtn'||b.classList.contains('m')){e.stopPropagation();return toggleMusic()}if(b.id==='sfxBtn'||b.classList.contains('s')){e.stopPropagation();return toggleSfx()}},true);
+document.addEventListener('pointerdown',e=>{const first=!ac;if(audio()&&ac.state==='suspended')ac.resume();if(first)setMusic(SCREEN_MUSIC[curScreen]);if(e.target.closest('button'))sTap()},true);
+document.addEventListener('visibilitychange',()=>{if(!ac)return;document.hidden?ac.suspend():ac.resume()});
+syncAudioBtns();
+
+
+/* ---------- XP, day streak, navigation ---------- */
+const SCREENS=['home','rush','results','lab','golf','mat','ear','quiz','qzDone','predict'];
+function show(id){if(id!==curScreen&&id!=='home'&&ac)sWhoosh();curScreen=id;if(ac)setMusic(SCREEN_MUSIC[id]);SCREENS.forEach(s=>$(s).hidden=s!==id);if(id!=='predict'&&P.raf){cancelAnimationFrame(P.raf);P.raf=0}if(id==='home')refresh()}
+/* ---------- badges (break-it bounties included) ---------- */
+const BADGES=[['streak10','On fire','10 in a row'],['boom','Kaboom','Blow up Euler'],['edge','Edge walker','95+ on a pilot round'],['lost','Lost ball','Make Newton diverge'],
+ ['ace','Hole in 2','Newton in ≤ 2 strokes'],['matrix5','Matrix builder','5 / 5 matrices'],['ear5','Perfect pitch','5 / 5 by ear'],['seer','Seer','6 / 6 predictions'],
+ ['daily','Daily done','Finish a daily'],['comeback','Comeback kid','Clear a comeback'],['streak3','3-day streak','Play 3 days in a row'],['mars','Mars landing','Reach 900 XP']];
+const has=k=>store.get('badge_'+k)==='1';
+function earn(k){if(has(k))return;store.set('badge_'+k,'1');const b=BADGES.find(x=>x[0]===k);const bonus=(k==='boom'||k==='lost')?5:0;if(bonus){store.set('xp',store.num('xp')+bonus)}
+  const t=$('toast');t.textContent=`Badge unlocked: ${b[1]}`+(bonus?` (+${bonus} XP bounty)`:'');t.hidden=false;setTimeout(()=>t.hidden=true,4000);[0,4,7,12,16].forEach((s,i)=>tone(semi(s,523),0.3,'sine',0.09,i*0.07))}
+function award(xp,game,score){const today=new Date().toDateString(),y=new Date(Date.now()-864e5).toDateString(),last=store.get('lastDay');
+  if(last!==today){store.set('days',last===y?store.num('days')+1:1);store.set('dayxp',0);store.set('lastDay',today)}
+  store.set('xp',store.num('xp')+xp);store.set('dayxp',store.num('dayxp')+xp);
+  if(score>store.num('b_'+game))store.set('b_'+game,score);
+  sCoin();const t=$('toast');t.textContent=`+${xp} XP`+(store.num('dayxp')>=50&&store.num('dayxp')-xp<50?' · daily goal reached!':'');t.hidden=false;setTimeout(()=>t.hidden=true,3500);
+  if(store.num('days')>=3)earn('streak3');if(store.num('xp')>=900&&!has('mars')){earn('mars');sLand()}}
+function refresh(){$('xp').textContent=store.num('xp');const today=new Date().toDateString();$('days').textContent=store.num('days');const d=store.get('lastDay')===today?store.num('dayxp'):0;$('dayxp').textContent=d;$('goalbar').style.width=Math.min(100,d/50*100)+'%';
+  ['rush','lab','golf','mat','ear','predict'].forEach(g=>$('b_'+g).textContent=store.num('b_'+g)||'');
+  const frac=Math.min(1,store.num('xp')/900);$('trackfill').style.width=frac*100+'%';$('ship').style.left=frac*100+'%';$('km').textContent=(store.num('xp')>=900?'Landed! ':'')+Math.round(Math.min(900,store.num('xp'))*0.25)+' of 225 million km';
+  $('dailyNum').textContent='#'+dailyNum();const dr=store.get('daily_'+dayKey());$('dailyRes').textContent=dr?dr+'/10':'';$('dailySub').textContent=dr?'Done for today. See you tomorrow.':'Same 10 questions for everyone today.';
+  const due=cbDue().length,all=cbList().length;$('cbCount').textContent=due||'';$('cbNode').disabled=!due;
+  $('cbSub').textContent=due?`${due} question${due>1?'s':''} due for review.`:all?`Next review ${cbNext()}.`:'Questions you miss come back here later.';
+  $('badges').innerHTML=BADGES.map(b=>`<span class="${has(b[0])?'got':''}" title="${b[2]}"><b>${b[1]}</b>${b[2]}</span>`).join('')}
+document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>{clearInterval(R.iv);clearTimeout(G.timer);show('home')});
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>({rush:startRush,lab:startLab,golf:startGolf,mat:startMat,ear:startEar,daily:startDaily,comeback:startComeback,predict:startPredict})[b.dataset.go]());
+
+/* ---------- comeback queue (spaced repetition: 1, 3, 7 days) ---------- */
+const DAY=864e5,GAPS=[1,3,7];
+function cbList(){try{return JSON.parse(store.get('cb')||'[]')}catch(e){return []}}
+function cbSave(l){store.set('cb',JSON.stringify(l.slice(-60)))}
+function cbAdd(q){const l=cbList().filter(x=>x.q.q!==q.q);l.push({q:{tag:q.tag,q:q.q,a:q.a,opts:q.opts,why:q.why,sheet:q.sheet},box:0,due:Date.now()+DAY});cbSave(l)}
+function cbDue(){const n=Date.now();return cbList().filter(x=>x.due<=n)}
+function cbNext(){const l=cbList();if(!l.length)return '';const d=Math.ceil((Math.min(...l.map(x=>x.due))-Date.now())/DAY);return d<=1?'tomorrow':`in ${d} days`}
+function cbResult(q,ok){const l=cbList(),i=l.findIndex(x=>x.q.q===q.q);if(i<0)return;if(ok){l[i].box++;if(l[i].box>=GAPS.length){l.splice(i,1);earn('comeback')}else l[i].due=Date.now()+GAPS[l[i].box]*DAY}else{l[i].box=0;l[i].due=Date.now()+DAY}cbSave(l)}
+
+/* ---------- daily challenge: same seed for everyone on the same date ---------- */
+const dayKey=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
+const dailyNum=()=>{const d=new Date();return Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-new Date(2026,10,14))/DAY)+1};
+function seeded(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function dailySet(){const orig=Math.random;Math.random=seeded(dailyNum()*7919+384);const qs=[];const seen=new Set();let guard=0;
+  while(qs.length<10&&guard++<200){const q=nextQ();if(!seen.has(q.q)){seen.add(q.q);qs.push(q)}}Math.random=orig;return qs}
+
+/* ---------- shared quiz screen (daily + comeback) ---------- */
+const Q={};
+function startDaily(){const done=store.get('daily_'+dayKey());if(done){showShare(+done,JSON.parse(store.get('dailyGrid_'+dayKey())||'[]'));return}
+  Object.assign(Q,{mode:'daily',list:dailySet(),i:0,right:0,grid:[]});$('qzTitle').textContent='Daily #'+dailyNum();show('quiz');qzAsk()}
+function startComeback(){const l=cbDue();if(!l.length)return;Object.assign(Q,{mode:'comeback',list:l.map(x=>({...x.q,opts:shuffle(x.q.opts)})),i:0,right:0,grid:[]});$('qzTitle').textContent='Comeback';show('quiz');qzAsk()}
+function qzAsk(){const q=Q.list[Q.i];Q.lock=false;$('qzProg').textContent=`${Q.i+1} / ${Q.list.length}`;$('qzScore').textContent=Q.right;$('qzCard').className='card';$('qzTag').textContent=q.tag;$('qzQ').innerHTML=q.q;$('qzWhy').textContent='';putSheet('qzSheet');$('qzNext').hidden=true;
+  const box=$('qzAns');box.innerHTML='';q.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>qzAnswer(o,b);box.appendChild(b)})}
+function qzAnswer(o,btn){if(Q.lock)return;Q.lock=true;const q=Q.list[Q.i],ok=o===q.a;[...$('qzAns').children].forEach(b=>{b.disabled=true;if(b.textContent===q.a)b.classList.add('right')});
+  Q.grid.push(ok?1:0);if(ok){Q.right++;sGood(Q.right);$('qzCard').classList.add('good')}else{btn.classList.add('wrong');sBad();$('qzCard').classList.add('bad');if(Q.mode==='daily')cbAdd(q)}
+  if(Q.mode==='comeback')cbResult(q,ok);$('qzWhy').textContent=q.why;putSheet('qzSheet',q.sheet);$('qzScore').textContent=Q.right;$('qzNext').hidden=false;$('qzNext').textContent=Q.i+1<Q.list.length?'Next':'Finish'}
+$('qzNext').onclick=()=>{Q.i++;if(Q.i<Q.list.length)return qzAsk();
+  if(Q.mode==='daily'){store.set('daily_'+dayKey(),Q.right);store.set('dailyGrid_'+dayKey(),JSON.stringify(Q.grid));award(Q.right*3,'daily',0);earn('daily');showShare(Q.right,Q.grid)}
+  else{award(Q.right*2,'comeback',0);show('home')}};
+function showShare(n,grid){show('qzDone');$('qdLabel').textContent='Daily Challenge #'+dailyNum();$('qdScore').textContent=n+' / 10';
+  $('qdMsg').textContent=n===10?'Perfect day.':n>=8?'Strong. Missed ones go to Comeback.':'Missed ones are waiting in Comeback.';
+  $('shareBox').textContent=`MAE 384 Method Rush · Daily #${dailyNum()}\n${n}/10  ${grid.map(g=>g?'🟩':'🟥').join('')}`;$('copyMsg').textContent='Paste it in the class Ed thread and compare with friends.'}
+$('copyBtn').onclick=()=>{const t=$('shareBox').textContent;const sel=()=>{const r=document.createRange();r.selectNodeContents($('shareBox'));const s=getSelection();s.removeAllRanges();s.addRange(r);$('copyMsg').textContent='Selected. Copy it with your keyboard or long-press.'};
+  try{navigator.clipboard.writeText(t).then(()=>$('copyMsg').textContent='Copied.',sel)}catch(e){sel()}};
+
+/* ---------- the equation-sheet line behind every answer ---------- */
+const SHEET={
+ simp13:['Module 6 · Simpson 1/3','I ≈ (h/3)[f₁ + 4f₂ + 2f₃ + 4f₄ + … + 2f_{N−1} + 4f_N + f_{N+1}],  N even'],
+ simp38:['Module 6 · Simpson 3/8','I ≈ (3h/8)[f₁ + 3f₂ + 3f₃ + 2f₄ + … + 3f_N + f_{N+1}],  N a multiple of 3'],
+ simpmix:['Module 6 · Simpson 1/3 + 3/8','Odd N, not a multiple of 3: Simpson 1/3 on the first N − 3 intervals + Simpson 3/8 on the last 3'],
+ trap:['Module 6 · Trapezoid','I ≈ (h/2)[f₁ + 2f₂ + 2f₃ + … + 2f_N + f_{N+1}],  second order'],
+ fd_first1:['Module 5 · Two-point forward','f′(xᵢ) ≈ [f(xᵢ₊₁) − f(xᵢ)] / h,  O(h)'],
+ fd_first2:['Module 5 · Three-point forward','f′(xᵢ) ≈ [−3f(xᵢ) + 4f(xᵢ₊₁) − f(xᵢ₊₂)] / (2h),  O(h²)'],
+ fd_last1:['Module 5 · Two-point backward','f′(xᵢ) ≈ [f(xᵢ) − f(xᵢ₋₁)] / h,  O(h)'],
+ fd_last2:['Module 5 · Three-point backward','f′(xᵢ) ≈ [f(xᵢ₋₂) − 4f(xᵢ₋₁) + 3f(xᵢ)] / (2h),  O(h²)'],
+ fd_interior2:['Module 5 · Two-point central','f′(xᵢ) ≈ [f(xᵢ₊₁) − f(xᵢ₋₁)] / (2h),  O(h²)'],
+ fd_interior4:['Module 5 · Four-point central','f′(xᵢ) ≈ [f(xᵢ₋₂) − 8f(xᵢ₋₁) + 8f(xᵢ₊₁) − f(xᵢ₊₂)] / (12h),  O(h⁴)'],
+ bisect:['Module 3 · Bisection','n = ⌈ log((b − a)/(2ε)) / log 2 ⌉   (only bisection guarantees the tolerance)'],
+ newton:['Module 3 · Newton','x⁽ᵏ⁺¹⁾ = x⁽ᵏ⁾ − f(x⁽ᵏ⁾) / f′(x⁽ᵏ⁾)'],
+ secant:['Module 3 · Secant','x⁽ᵏ⁺¹⁾ = x⁽ᵏ⁾ − f(x⁽ᵏ⁾)(x⁽ᵏ⁾ − x⁽ᵏ⁻¹⁾) / [f(x⁽ᵏ⁾) − f(x⁽ᵏ⁻¹⁾)]'],
+ newtonsys:['Module 3 · Newton for systems','Jacobian aᵢⱼ = ∂fᵢ/∂xⱼ;  solve A Δx = −f,  then x ← x + Δx'],
+ pivot:['Not on the sheet · Module 2','Gauss elimination with partial pivoting: swap rows so the pivot is the largest |entry| in its column','off'],
+ pow:['Module 4 · Transform table','y = b xᵐ  →  regress ln y on ln x;   m = a₁,  b = e^{a₀}'],
+ exp:['Module 4 · Transform table','y = b e^{mx}  →  regress ln y on x;   m = a₁,  b = e^{a₀}'],
+ interp:['Module 4 · Lagrange / splines','Exact data: pass through every point. Lagrange Lᵢ(x) = Π_{j≠i} (x − xⱼ)/(xᵢ − xⱼ)'],
+ polyfit:['Module 4 · Regression vs. interpolation','Interpolation (order n − 1): X a = y.   Regression (order m < n − 1): XᵀX a = Xᵀy'],
+ eulerexp:['Module 7 · Euler explicit','yᵢ₊₁ = yᵢ + h f(xᵢ, yᵢ)'],
+ eulerimp:['Module 7 · Euler implicit','yᵢ₊₁ = yᵢ + h f(xᵢ₊₁, yᵢ₊₁)   (f at the new point: solve for yᵢ₊₁)'],
+ modeuler:['Module 7 · RK table, Modified Euler','c₁ = c₂ = ½, a₂ = b₂₁ = 1:  k₂ = f(xᵢ + h, yᵢ + hk₁),  yᵢ₊₁ = yᵢ + (h/2)(k₁ + k₂)'],
+ rk4:['Module 7 · RK-4','yᵢ₊₁ = yᵢ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄)'],
+ errest:['Module 7 · Error estimate','e ≈ |y₂ₕ − yₕ| / (2ᵖ − 1)'],
+ order:['Symbol key · Order','O(hᵖ): halving h cuts the error by about 2ᵖ'],
+ systems:['Module 7 · Systems and higher order','y″ = … → y′ = z, z′ = … ; apply the method to each equation (y is a vector)'],
+ stab:['Not on the sheet · derive it','Apply the method to y′ = λy:  Explicit Euler G = 1 + λh, stable if |G| ≤ 1 → h ≤ 2/|λ|.  Implicit G = 1/(1 − λh).','off'],
+ eps:['Module 1 · Floating-point table','Single: 23 mantissa bits → ε = 2⁻²³ ≈ 1.2×10⁻⁷.   Double: 52 bits → ε ≈ 2.2×10⁻¹⁶'],
+ errplot:['Module 1 + Module 7','Slope of log|E| vs log h = order p.  Floor ≈ machine ε (single ≈ 10⁻⁷, double ≈ 10⁻¹⁶)']
+};
+function sheetHTML(k){const e=SHEET[k];if(!e)return '';return `<div class="sheet${e[2]?' off':''}"><span>${e[2]?'':'📄 On your sheet · '}${e[0]}</span><code>${e[1]}</code></div>`}
+function putSheet(id,k){const el=$(id);if(el)el.innerHTML=k?sheetHTML(k):''}
+
+/* ---------- question generators (Method Rush): engineering context drawn at random each time ---------- */
+const S13="Composite Simpson's 1/3",S38="Composite Simpson's 3/8",SMIX="Simpson's 1/3 + 3/8 on the last 3",TRAP="Composite trapezoidal";
+const INT_CTX=[s=>`🚁 A drone logs battery power at ${s} equally spaced times. Energy used (∫P dt), fourth order?`,
+ s=>`🚀 A rocket-motor test logs thrust at ${s} equally spaced times. Total impulse (∫F dt), fourth order?`,
+ s=>`🌬️ A pitot rake gives ${s} equally spaced velocity readings across a duct. Flow rate, fourth order?`,
+ s=>`✈️ Lift per unit span is measured at ${s} equally spaced stations along a wing. Total lift, fourth order?`,
+ s=>`☀️ A solar array's power is logged at ${s} equally spaced times. Energy for the day, fourth order?`,
+ s=>`🚗 A car's speed is logged at ${s} equally spaced times. Distance traveled, fourth order?`];
+const FD_CTX=[['🏎️ GPS positions of a race car every 0.1 s.','Velocity'],['🌡️ A thermocouple logs temperature every second.','Heating rate dT/dt'],['🚀 Rocket altitude is sampled every 0.5 s.','Vertical speed'],['🔩 A strain gauge logs strain every 2 ms.','Strain rate'],['💧 A tank\'s water level is logged every minute.','Fill rate']];
+const BIS_CTX=[(w,t)=>`🔥 A cooling turbine blade hits 600 °C somewhere in a ${w} s window. Pin the time to ±${t} s, guaranteed. Bisection iterations?`,
+ (w,t)=>`🌉 A beam's deflection crosses zero somewhere along a ${w} m span. Locate it to ±${t} m, guaranteed. Bisection iterations?`,
+ (w,t)=>`🔋 A drone battery hits 20% somewhere in a ${w} h window. Pin it to ±${t} h, guaranteed. Bisection iterations?`,
+ (w,t)=>`🛰️ A satellite crosses the equator somewhere in a ${w} min window. Pin it to ±${t} min, guaranteed. Bisection iterations?`];
+const STAB_CTX=[['🌡️ Thermocouple bead cooling','θ′ = −λθ'],['⚡ RC circuit discharging','V′ = −λV'],['🚁 Drone rotor spinning down','ω′ = −λω'],['🏭 Pollutant flushing out of a tank','c′ = −λc'],['🚗 Shock absorber settling','x′ = −λx']];
+const SIM_CTX=['🛰️ a satellite orbit','🚀 a rocket ascent','🌉 a bridge deck vibration','🔋 a battery temperature model','🏀 a projectile with drag','🌊 a draining tank'];
+const gens=[
+ ()=>{const s=5+Math.floor(Math.random()*24),N=s-1;const a=N%2==0?S13:(N%3==0?S38:SMIX);
+   const why=N%2==0?`${s} samples = ${N} intervals, even → Simpson's 1/3.`:(N%3==0?`${s} samples = ${N} intervals: odd, but a multiple of 3 → Simpson's 3/8.`:`${s} samples = ${N} intervals: odd and not a multiple of 3 → split 1/3 + 3/8.`);
+   return {tag:'Integration',q:rnd(INT_CTX)(s),a,opts:[S13,S38,SMIX,TRAP],why,sheet:N%2==0?'simp13':N%3==0?'simp38':'simpmix'}},
+ ()=>{const pos=rnd(['first','last','interior']),o=pos=='interior'?rnd([2,4]):rnd([1,2]);const c=rnd(FD_CTX);
+   const map={first1:'Two-point forward',first2:'Three-point forward',last1:'Two-point backward',last2:'Three-point backward',interior2:'Two-point central',interior4:'Four-point central'};
+   const a=map[pos+o];return {tag:'Derivatives',q:`${c[0]} ${c[1]} at the ${pos=='interior'?'middle':pos} reading with error O(h${o>1?'<sup>'+o+'</sup>':''}). Which formula?`,a,opts:shuffle(Object.values(map).filter(x=>x!=a)).slice(0,3).concat(a),why:`${pos=='first'?'No data before it → forward':pos=='last'?'No data after it → backward':'Data on both sides → central'}; the order sets how many points.`,sheet:'fd_'+pos+o}},
+ ()=>{const c=rnd([[1,1e-3],[2,1e-3],[4,1e-2],[1,1e-4],[10,1e-2],[3,1e-3],[20,0.01],[8,0.05]]),r=c[0]/(2*c[1]),n=Math.ceil(Math.log2(r)-1e-9);
+   return {tag:'Root finding',q:rnd(BIS_CTX)(c[0],c[1]),a:String(n),opts:[n-1,n,n+1,n+2].map(String),why:`n = ⌈log₂(${c[0]}/(2·${c[1]}))⌉ = ⌈log₂ ${+r.toFixed(2)}⌉ = ${n}.`,sheet:'bisect'}},
+ ()=>{const l=rnd([10,20,40,50,100,200]),h=2/l,c=rnd(STAB_CTX);return {tag:'Stability',q:`${c[0]}: ${c[1].replace('λ',l)}. Explicit Euler: largest stable step h?`,a:String(h),opts:[h/2,h,2*h,4*h].map(x=>String(+x.toFixed(4))),why:`Need |1 + λh| ≤ 1 → h ≤ 2/|λ| = 2/${l} = ${h}.`,sheet:'stab'}},
+ ()=>{const m=rnd([['Euler',1],['Modified Euler',2],['RK-3',3],['RK-4',4]]);return {tag:'Order',q:`You simulate ${rnd(SIM_CTX)} with ${m[0]}, then halve h. The error shrinks by about…`,a:'÷ '+2**m[1],opts:['÷ 2','÷ 4','÷ 8','÷ 16'],why:`Order p = ${m[1]} → error ÷ 2^p = ${2**m[1]}.`,sheet:'order'}},
+ ()=>{const p=rnd([1,2,4]),d=rnd([0.012,0.03,0.006]),e=d/(2**p-1);const f=x=>x.toFixed(4);
+   return {tag:'Error estimate',q:`You simulate ${rnd(SIM_CTX)} with an order-${p} method: |y₂ₕ − yₕ| = ${d}. Estimated error of the step-h result?`,a:f(e),opts:[...new Set([f(e),f(d),f(d/2**p),f(d/(2**p+1)),f(d*2)])].slice(0,4),why:`e = |y₂ₕ − yₕ|/(2^p − 1) = ${d}/${2**p-1}.`,sheet:'errest'}},
+ ()=>{const q=rnd(FIXED);return {...q,q:Array.isArray(q.q)?rnd(q.q):q.q}},()=>{const q=rnd(FIXED);return {...q,q:Array.isArray(q.q)?rnd(q.q):q.q}},()=>{const q=rnd(FIXED);return {...q,q:Array.isArray(q.q)?rnd(q.q):q.q}}
+];
+const F=(tag,q,a,others,why,sheet)=>({tag,q,a,opts:[a,...others],why,sheet});
+const FIXED=[
+ F('Clue word',['🌬️ Noisy wind-tunnel data: drag D = b·Vᵐ. Find b and m.','🔩 Noisy creep-test data: strain rate ε̇ = b·σᵐ. Find b and m.','🚁 Noisy rotor data: thrust T = b·ωᵐ. Find b and m.'],'Log both, then linear regression',['Lagrange interpolation','Log y only, then regression','Cubic splines'],'Noisy → regression. Power law → ln y vs ln x.','pow'),
+ F('Clue word',['🔋 Noisy discharge data: V = b·e^(mt). Find b and m.','☕ Noisy cooling-curve data: ΔT = b·e^(mt). Find b and m.','🛬 Noisy brake-test data: speed v = b·e^(mt). Find b and m.'],'Log y only, then linear regression',['Log both, then regression','Polynomial interpolation','Newton\'s method'],'Exponential → ln y vs x.','exp'),
+ F('Clue word',['♨️ Steam-table values at 100 °C and 120 °C; you need 112 °C.','🌍 Standard-atmosphere table at 5 km and 6 km; you need 5.4 km.','✈️ Tabulated lift coefficients at 4° and 6°; you need 5°.'],'Interpolation (Lagrange or spline)',['Linear regression','Simpson\'s 1/3','Bisection'],'Exact table values → pass through them.','interp'),
+ F('Clue word',['🔋 Battery thermal model with a cooling rate of −5000 s⁻¹. Long run, must be fast.','🔥 Combustion chemistry: rates from −1 to −10⁶ s⁻¹. Long run.','⚡ Circuit with a tiny parasitic capacitor (rate −10⁵ s⁻¹). Long run.'],'Implicit Euler',['Explicit Euler','RK-4','Midpoint'],'Stiff → implicit: stable at any h.','eulerimp'),
+ F('Clue word',['🛰️ Satellite orbit, non-stiff, fourth-order accuracy.','🏀 Projectile with drag, smooth and non-stiff, fourth order.','🚀 Rocket ascent, non-stiff, fourth-order accuracy.'],'Classical RK-4',['Modified Euler','Simpson\'s 1/3','Implicit Euler'],'Fourth-order ODE solver = RK-4.','rk4'),
+ F('Clue word',['🔥 When does a cooling blade hit 600 °C? The bound must be guaranteed.','🚰 Valve angle for a target flow is bracketed; error must be guaranteed.'],'Bisection',['Newton','Secant','Regression'],'Guarantee → bisection.','bisect'),
+ F('Clue word',['🛰️ Kepler\'s equation for a satellite\'s position: f′ is easy and last orbit gives a good guess.','🚰 Pipe-flow equation with f′ known and a good guess; you want speed.'],'Newton\'s method',['Bisection','Secant','Gauss elimination'],'Derivative + good guess → Newton.','newton'),
+ F('Clue word',['💻 Each f is a full CFD run, no formula for f′; you have two earlier runs.','🧪 Root of a lab-measured curve, no f′ available, two guesses.'],'Secant method',['Newton\'s method','Bisection','RK-4'],'No derivative → secant.','secant'),
+ F('Clue word',['🌉 Two coupled nonlinear equations for a truss joint\'s position.','🔧 Equilibrium of two nonlinear springs: two coupled equations.'],'Newton for systems',['Bisection twice','Gauss elimination only','Linear regression'],'Jacobian, solve AΔx = −f, update.','newtonsys'),
+ F('Clue word',['🌉 Truss force equations with a zero on the diagonal.','⚡ Circuit node equations: the first pivot is 0.'],'Gauss elimination with partial pivoting',['Gauss elimination, no pivoting','Newton\'s method','Secant method'],'Zero pivot → swap rows first.','pivot'),
+ F('Implicit Euler',['🛰️ Implicit Euler on radiative cooling T′ = −k T⁴. How do you get Tᵢ₊₁?','Implicit Euler on y′ = x − y³. How do you get yᵢ₊₁?'],'Newton on g(y) = 0',['Rearrange with algebra','Use the explicit value','Simpson\'s rule'],'Nonlinear f → root finding each step.','eulerimp'),
+ F('Implicit Euler',['☕ Implicit Euler on Newton cooling T′ = −k(T − 20). How do you get Tᵢ₊₁?','Implicit Euler on y′ = 2x − 3y. How do you get yᵢ₊₁?'],'Rearrange with algebra',['Newton on g(y) = 0','Bisection','RK-4'],'Linear f → collect yᵢ₊₁ and divide.','eulerimp'),
+ F('Error plot','Error floor near 10⁻⁷, then it rises. Precision?','Single',['Double','Half','Quadruple'],'Floor ≈ machine epsilon: single ≈ 10⁻⁷.','eps'),
+ F('Error plot','Log–log error plot, straight part has slope 2.','Modified Euler (RK2)',['Euler','RK-4','RK-3'],'Slope = order.','errplot'),
+ F('Error plot','Error rises and turns jagged at tiny steps. Why?','Round-off error',['Truncation error','Instability','Wrong method'],'More steps → more rounding errors piling up.','errplot'),
+ F('Systems',['🚗 Car suspension: m x″ + c x′ + k x = F(t). First-order equations needed?','🛩️ Wing flutter, one bending mode: m h″ + c h′ + k h = L(t). First-order equations needed?'],'2',['1','3','4'],'One per state: position and velocity.','systems'),
+ F('Systems',['🦾 Robot joint with motor inductance: a third-order ODE. First-order equations needed?','🛗 Elevator jerk model: y‴ + … = u(t). First-order equations needed?'],'3',['1','2','6'],'One per state: y, y′, y″.','systems'),
+ F('Systems','🌉 Beam on an elastic foundation: a fourth-order ODE in w(x). First-order equations needed?','4',['2','3','8'],'One per state: w, w′, w″, w‴.','systems'),
+ F('Sheet','Modified Euler coefficients?','c₁=c₂=½, a₂=b₂₁=1',['c₁=0, c₂=1, a₂=b₂₁=½','c₁=c₄=⅙, c₂=c₃=²⁄₆','c₁=1, c₂=0'],'Careful: the midpoint method is the line above it.','modeuler'),
+];
+function nextQ(){let q=rnd(gens)();q={...q,opts:shuffle([...new Set(q.opts)])};if(q.opts.length<3||!q.opts.includes(q.a))return nextQ();return q}
+
+/* ---------- 1. Method Rush ---------- */
+const R={};
+function startRush(){Object.assign(R,{score:0,streak:0,best:0,right:0,total:0,t:60,missed:[],lock:false});show('rush');hud();ask();clearInterval(R.iv);R.last=performance.now();
+  R.iv=setInterval(()=>{const now=performance.now();if(!R.lock)R.t-=(now-R.last)/1000;R.last=now;if(R.t<=0){R.t=0;endRush()}hud()},100)}
+const mult=()=>R.streak>=10?4:R.streak>=6?3:R.streak>=3?2:1;
+function hud(){MUS.intense=R.t<10&&R.t>0;const sec=Math.ceil(R.t);if(sec<=5&&sec>0&&sec!==R.lastSec){sTick(sec<=3)}R.lastSec=sec;$('score').textContent=R.score;$('mult').textContent='×'+mult();$('mult').className='pill'+(mult()>1?' hot':'');$('streak').textContent='streak '+R.streak;$('time').textContent=Math.ceil(R.t);$('timebar').style.width=(R.t/60*100)+'%'}
+function ask(){R.q=nextQ();R.lock=false;$('card').className='card';$('tag').textContent=R.q.tag;$('q').innerHTML=R.q.q;$('why').textContent='';putSheet('rushSheet');
+  const box=$('answers');box.innerHTML='';R.q.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>answer(o,b);box.appendChild(b)})}
+function answer(o,btn){if(R.lock||R.t<=0)return;R.lock=true;R.total++;const ok=o===R.q.a;
+  [...$('answers').children].forEach(b=>{b.disabled=true;if(b.textContent===R.q.a)b.classList.add('right')});
+  if(ok){R.streak++;R.best=Math.max(R.best,R.streak);R.right++;const m0=mult();R.score+=100*mult();if(mult()>m0)sPower(mult()*2);$('card').classList.add('good');sGood(R.streak);if(R.streak>=10)earn('streak10');hud();setTimeout(ask,380)}
+  else{btn.classList.add('wrong');R.missed.push(R.q);cbAdd(R.q);R.streak=0;R.t=Math.max(0,R.t-3);$('card').classList.add('bad');$('why').textContent=R.q.why;putSheet('rushSheet',R.q.sheet);sBad();hud();setTimeout(()=>{if(R.t>0&&!$('rush').hidden)ask()},2300)}}
+function endRush(){clearInterval(R.iv);MUS.intense=false;if($('rush').hidden)return;tone(98,0.5,'sawtooth',0.12);setTimeout(sFanfare,500);const best=store.num('b_rush');award(Math.round(R.score/50),'rush',R.score);show('results');$('finalScore').textContent=R.score;const acc=R.total?Math.round(R.right/R.total*100):0;
+  $('sCorrect').textContent=R.right;$('sAcc').textContent=acc+'%';$('sStreak').textContent=R.best;
+  $('verdict').textContent=(R.score>best?'New personal best! ':`Personal best: ${best}. `)+`+${Math.round(R.score/50)} XP. `+(R.score>=2500?'Exam-ready pace.':R.score>=1200?'Solid. Chase a longer streak.':'Keep the sheet open and go again.');
+  $('missedHead').hidden=!R.missed.length;const m=$('missed');m.innerHTML='';R.missed.forEach(q=>{const d=document.createElement('div');d.innerHTML=`<b>${q.q}</b><br>→ ${q.a}<small>${q.why}</small>`+sheetHTML(q.sheet);m.appendChild(d)})}
+$('again').onclick=startRush;
+
+/* ---------- 2. Stability Pilot ---------- */
+const L={};
+function startLab(){Object.assign(L,{round:0,score:0});show('lab');labRound()}
+function labRound(){L.round++;if(L.round>3){award(Math.round(L.score/10),'lab',L.score);return show('home')}L.lam=rnd([10,20,25,40,50]);L.done=false;$('labRound').textContent=L.round+' / 3';$('labScore').textContent=L.score;L.ctx=rnd(STAB_CTX);$('labCtx').textContent=L.ctx[0];$('labOde').textContent=L.ctx[1].replace('λ',L.lam);putSheet('labSheet');
+  $('hSlider').max=(4/L.lam).toFixed(3);$('hSlider').value=(0.4/L.lam).toFixed(3);$('lock').textContent='Lock it in';$('hSlider').disabled=false;$('labWhy').textContent='';plot()}
+function plot(){const h=+$('hSlider').value,lam=L.lam,Gf=1-lam*h,cv=$('cv'),c=cv.getContext('2d'),W=cv.width,H=cv.height;
+  c.clearRect(0,0,W,H);const T=24/lam,x=t=>60+(W-90)*t/T,y=v=>H/2-v*(H/2-40)/1.6;
+  c.strokeStyle=css('--muted');c.lineWidth=1.5;c.beginPath();c.moveTo(60,y(0));c.lineTo(W-30,y(0));c.stroke();
+  c.setLineDash([8,8]);c.lineWidth=3;c.beginPath();for(let i=0;i<=200;i++){const t=T*i/200;i?c.lineTo(x(t),y(Math.exp(-lam*t))):c.moveTo(x(t),y(1))}c.stroke();c.setLineDash([]);
+  const boom=Math.abs(Gf)>1+1e-9,osc=Gf<0;const color=boom?css('--stop'):osc?css('--sun'):css('--go');
+  c.strokeStyle=color;c.fillStyle=color;c.lineWidth=5;c.beginPath();let v=1,pts=[];L.seq=[];for(let n=0;n*h<=T+1e-9&&n<400;n++){L.seq.push(v);pts.push([x(n*h),y(Math.max(-1.7,Math.min(1.7,v)))]);v*=Gf}
+  pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke();pts.forEach(p=>{c.beginPath();c.arc(p[0],p[1],8,0,7);c.fill()});
+  c.fillStyle=css('--muted');c.font='26px Nunito, sans-serif';c.fillText('- - exact',W-190,44);
+  $('hVal').textContent=h.toFixed(3);$('gVal').textContent=Gf.toFixed(2);const s=$('stat');s.textContent=boom?'BLOWS UP':osc?'stable, but oscillating':'stable';s.className='status '+(boom?'boom':osc?'warn':'ok');return {boom}}
+/* sound of the solution itself: each step's value becomes a pitch, so a blow-up screeches upward */
+function playSeq(){L.seq.slice(0,24).forEach((v,i)=>{const a=Math.abs(v);tone(220*Math.pow(2,Math.min(4,Math.log2(a+0.06)+2)),0.09,v<0?'square':'triangle',0.1,i*0.08)})}
+function lockIn(){if(L.done){labRound();return}const h=+$('hSlider').value,hmax=2/L.lam,{boom}=plot();L.done=true;$('hSlider').disabled=true;let pts=0;playSeq();putSheet('labSheet','stab');
+  if(boom){earn('boom');$('labWhy').textContent=`Too far: |G| > 1, so every step grows (hear it climb). The limit is h = 2/|λ| = 2/${L.lam} = ${hmax.toFixed(3)}.`}
+  else{pts=Math.round(100*Math.pow(h/hmax,3));if(pts>=95)earn('edge');$('labWhy').textContent=`+${pts}. The limit is h = 2/|λ| = ${hmax.toFixed(3)} (where G = −1). ${pts>=90?'Right on the edge.':'You had room to push further.'} Implicit Euler has no limit at all.`}
+  L.score+=pts;$('labScore').textContent=L.score;$('lock').textContent=L.round<3?'Next ODE':'Finish'}
+let slT=0;$('hSlider').oninput=()=>{plot();const now=performance.now();if(now-slT>70){slT=now;const G=Math.abs(1-L.lam*+$('hSlider').value);tone(220+G*330,0.05,G>1?'sawtooth':'sine',0.05,0,true)}};$('lock').onclick=lockIn;
+
+/* ---------- 3. Newton Golf ---------- */
+const GOLF=[
+ {ctx:'🛟 How deep does a buoy sit? (radius 1 m, 60% as dense as water; depth h in m)',name:'h³ − 3h² + 2.4',f:x=>x**3-3*x*x+2.4,d:x=>3*x*x-6*x,lo:-1.5,hi:3.5,ylo:-8,yhi:9},
+ {ctx:'🛰️ Where is a satellite on a very elliptical orbit? Kepler\'s equation, e = 0.9',name:'E − 0.9 sin E − 0.5',f:x=>x-0.9*Math.sin(x)-0.5,d:x=>1-0.9*Math.cos(x),lo:-4,hi:4,ylo:-5.5,yhi:4.5},
+ {ctx:'🏗️ First vibration mode of a cantilever beam (a diving board, a wing spar)',name:'cos x · cosh x + 1',f:x=>Math.cos(x)*Math.cosh(x)+1,d:x=>-Math.sin(x)*Math.cosh(x)+Math.cos(x)*Math.sinh(x),lo:0,hi:3.2,ylo:-12,yhi:4},
+ {ctx:'🌊 Wavelength of an ocean wave over shallow water (scaled dispersion relation)',name:'k tanh k − 0.5',f:x=>x*Math.tanh(x)-0.5,d:x=>Math.tanh(x)+x/Math.cosh(x)**2,lo:-3,hi:3,ylo:-1,yhi:2.6},
+ {ctx:'📜 The equation Newton himself used to show off his method (1669)',name:'x³ − 2x − 5',f:x=>x*x*x-2*x-5,d:x=>3*x*x-2,lo:-3,hi:4,ylo:-12,yhi:14},
+ {ctx:'🧮 How a calculator chip finds √2',name:'x² − 2',f:x=>x*x-2,d:x=>2*x,lo:-1,hi:4,ylo:-3,yhi:8}];
+const G={};
+function startGolf(){Object.assign(G,{hole:0,score:0,holes:shuffle(GOLF).slice(0,3)});show('golf');golfHole()}
+function gmap(){const h=G.holes[G.hole],v=G.view||h,cv=$('gv'),W=cv.width,H=cv.height;return {h,v,W,H,X:x=>40+(W-80)*(x-v.lo)/(v.hi-v.lo),Y:y=>H-40-(H-80)*(y-v.ylo)/(v.yhi-v.ylo)}}
+/* camera: zoom out to follow a far-flung iterate, zoom back in once it returns */
+function viewFor(h,pts){pts=pts.filter(isFinite);const inside=pts.every(x=>x>=h.lo&&x<=h.hi);if(inside)return {lo:h.lo,hi:h.hi,ylo:h.ylo,yhi:h.yhi};
+  let lo=Math.min(h.lo,...pts),hi=Math.max(h.hi,...pts);const pad=(hi-lo)*0.08;lo-=pad;hi+=pad;const fs=pts.map(h.f);return {lo,hi,ylo:Math.min(h.ylo,...fs.map(f=>f*1.15)),yhi:Math.max(h.yhi,...fs.map(f=>f*1.15))}}
+function zoomTo(tgt,path,done){const from={...(G.view||G.holes[G.hole])},same=['lo','hi','ylo','yhi'].every(k=>Math.abs(from[k]-tgt[k])<1e-9);if(same){G.view=tgt;golfDraw(path);return done()}
+  const t0=performance.now(),D=550;if(tgt.hi-tgt.lo>from.hi-from.lo)tone(500,0.25,'sine',0.05,0,true);else tone(700,0.25,'sine',0.05,0,true);
+  const fr=now=>{if($('golf').hidden)return;const u=Math.min(1,(now-t0)/D),e=u<.5?2*u*u:1-2*(1-u)*(1-u);G.view={};for(const k of ['lo','hi','ylo','yhi'])G.view[k]=from[k]+(tgt[k]-from[k])*e;golfDraw(path);u<1?requestAnimationFrame(fr):done()};requestAnimationFrame(fr)}
+function niceStep(r){const raw=r/7,m=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/m;return (n<1.5?1:n<3.5?2:n<7.5?5:10)*m}
+function golfDraw(path=[]){const {h,v,W,H,X,Y}=gmap(),c=$('gv').getContext('2d');c.clearRect(0,0,W,H);
+  c.strokeStyle=css('--muted');c.lineWidth=2;c.beginPath();c.moveTo(40,Y(0));c.lineTo(W-40,Y(0));c.stroke();
+  c.strokeStyle=css('--sea');c.lineWidth=5;c.beginPath();const sp=v.yhi-v.ylo;for(let i=0;i<=600;i++){const x=v.lo+(v.hi-v.lo)*i/600,y=Math.max(v.ylo-sp,Math.min(v.yhi+sp,h.f(x)));i?c.lineTo(X(x),Y(y)):c.moveTo(X(x),Y(y))}c.stroke();
+  c.fillStyle=css('--muted');c.font='24px Nunito, sans-serif';const st=niceStep(v.hi-v.lo);for(let x=Math.ceil(v.lo/st)*st;x<=v.hi;x+=st){const t=Math.abs(x)<1e-9?'0':+x.toPrecision(4);c.fillText(t,X(x)-6*String(t).length,Math.min(H-8,Math.max(26,Y(0)+30)))}
+  if(v.hi-v.lo>(h.hi-h.lo)*1.05){c.fillStyle=css('--sun');c.font='bold 40px Nunito, sans-serif';c.fillText('zoomed out ×'+((v.hi-v.lo)/(h.hi-h.lo)).toFixed(1),W-420,52)}
+  path.forEach((p,i)=>{const [x0,x1]=p;c.strokeStyle=css('--sun');c.lineWidth=3;c.beginPath();c.moveTo(X(x0),Y(0));c.lineTo(X(x0),Y(h.f(x0)));c.lineTo(X(x1),Y(0));c.stroke();c.fillStyle=css('--heat');c.beginPath();c.arc(X(x0),Y(h.f(x0)),10,0,7);c.fill()});
+  if(G.x!=null&&G.x>=v.lo&&G.x<=v.hi){c.fillStyle=css('--ink');c.beginPath();c.arc(X(G.x),Y(0),13,0,7);c.fill()}}
+function golfHole(){if(G.hole>=3){award(G.score,'golf',G.score);return show('home')}G.x=null;G.view=null;G.busy=false;G.played=false;$('golfHole').textContent=`hole ${G.hole+1} / 3`;$('golfScore').textContent=G.score;$('golfCtx').textContent=G.holes[G.hole].ctx;$('golfF').textContent=G.holes[G.hole].name+' = 0';putSheet('golfSheet');$('gStrokes').textContent=0;$('gX').textContent='–';$('gErr').textContent='–';$('golfNext').disabled=true;$('golfNext').textContent=G.hole<2?'Next hole':'Finish';$('golfWhy').textContent='Hint: a guess where the curve is flat (f′ ≈ 0) sends the ball far away.';golfDraw()}
+$('gv').onclick=e=>{if(G.busy||G.played)return;const {h,W}=gmap(),r=$('gv').getBoundingClientRect(),px=(e.clientX-r.left)/r.width*W;let x=h.lo+(px-40)/(W-80)*(h.hi-h.lo);x=Math.max(h.lo,Math.min(h.hi,x));G.x=x;G.busy=true;G.played=true;const path=[];let k=0;
+  const step=()=>{const fx=h.f(G.x),err=Math.abs(fx);$('gX').textContent=G.x.toFixed(6);$('gErr').textContent=err.toExponential(1);
+    /* pitch follows log10 of the error: quadratic convergence is a pitch that plunges */
+    tone(semi(Math.max(-30,Math.log10(err+1e-12))*4+24,330),0.18,'triangle',0.14);
+    const last=path.length?path[path.length-1]:[G.x,G.x];zoomTo(viewFor(h,[G.x,last[0],last[1]]),path,()=>{
+    if(err<1e-6)return golfEnd(k,true);if(k>=12||Math.abs(G.x)>1e4||!isFinite(G.x))return golfEnd(k,false);
+    const d=h.d(G.x),x1=G.x-fx/(Math.abs(d)<1e-12?1e-12:d);path.push([G.x,x1]);G.x=x1;k++;$('gStrokes').textContent=k;G.timer=setTimeout(step,650)})};step()};
+function golfEnd(k,ok){G.busy=false;putSheet('golfSheet','newton');let pts=0;if(ok&&k<=2)earn('ace');if(!ok)earn('lost');if(ok){pts=Math.max(5,(9-k)*5);sPlop();setTimeout(chord,200);$('golfWhy').textContent=`In the hole in ${k} strokes: +${pts}. ${k<=4?'Great first guess.':'A guess closer to the root needs fewer strokes.'} Near the root the error is roughly squared each step.`}
+  else{sFall();$('golfWhy').textContent=`Lost ball after ${k} strokes. Newton divides by f′(x): where the curve is flat, the step is huge. Bisection would be the safe fallback.`}
+  G.score+=pts;$('golfScore').textContent=G.score;$('golfNext').disabled=false}
+$('golfNext').onclick=()=>{G.hole++;golfHole()};
+
+/* ---------- 4. Build the Matrix ---------- */
+const M={};const MAT_CTX=['🦾 Robot arm joint with motor inductance','🛗 Elevator ride-comfort (jerk) model','✈️ Aircraft pitch response with actuator lag','🚗 Active car suspension with a hydraulic actuator','🔥 Three-zone furnace temperature model'];
+const sgn=(v,first)=>(v<0?(first?'−':' − '):(first?'':' + '))+(Math.abs(v)===1?'':Math.abs(v));
+const neg=v=>(v<0?'−':'')+Math.abs(v);
+function startMat(){Object.assign(M,{round:0,score:0});show('mat');matRound()}
+function matRound(){M.round++;if(M.round>5){if(M.score>=50)earn('matrix5');award(M.score,'mat',M.score);return show('home')}const pick=()=>rnd([-5,-4,-3,-2,-1,1,2,3,4,5]);M.a2=pick();M.a1=pick();M.a0=pick();M.ans=[-M.a0,-M.a1,-M.a2];M.fill=[null,null,null];M.done=false;$('matCtx').textContent=rnd(MAT_CTX);putSheet('matSheet');
+  $('matRound').textContent=M.round+' / 5';$('matScore').textContent=M.score;const forcing=rnd(['3 sin t','e⁻ᵗ','2 cos(πt)','0','4']);
+  $('matOde').textContent=`y‴${sgn(M.a2)}y″${sgn(M.a1)}y′${sgn(M.a0)}y = ${forcing}`;$('matWhy').textContent='';$('matCheck').textContent='Check';
+  const pool=shuffle([...new Set([M.a0,-M.a0,M.a1,-M.a1,M.a2,-M.a2])]);M.pool=pool;matDraw()}
+function matDraw(){const s=$('slots');s.innerHTML='';const rows=[['0','1','0'],['0','0','1'],null];
+  rows.forEach((r,ri)=>{s.insertAdjacentHTML('beforeend',`<span>${ri==1?'A =':''}</span>`);for(let j=0;j<3;j++){if(r)s.insertAdjacentHTML('beforeend',`<span class="cell">${r[j]}</span>`);else{const b=document.createElement('button');b.className='cell'+(M.fill[j]!=null?' fill':'');b.textContent=M.fill[j]!=null?neg(M.fill[j]):'?';b.setAttribute('aria-label','Entry '+(j+1)+' of the last row');if(M.done)b.classList.add(M.fill[j]===M.ans[j]?'right':'wrong');b.onclick=()=>{if(M.done)return;M.fill[j]=null;matDraw()};s.appendChild(b)}}s.insertAdjacentHTML('beforeend','<span></span>')});
+  const c=$('chips');c.innerHTML='';M.pool.forEach(v=>{const b=document.createElement('button');b.textContent=neg(v);b.disabled=M.done;b.onclick=()=>{const i=M.fill.indexOf(null);if(i<0)return;M.fill[i]=v;tone(semi(i*4,440),0.08);matDraw()};c.appendChild(b)});
+  $('matCheck').disabled=!M.done&&M.fill.includes(null)}
+$('matCheck').onclick=()=>{if(M.done){matRound();return}M.done=true;const ok=M.fill.every((v,i)=>v===M.ans[i]);
+  if(ok){M.score+=10;chord();$('matWhy').textContent='+10. Solve for y‴: every term crosses the equals sign and flips. The forcing goes into b, not A.'}
+  else{sBad();$('matWhy').textContent=`Solve for the highest derivative: y‴ = ${neg(-M.a0)}y ${-M.a1<0?'−':'+'} ${Math.abs(M.a1)}y′ ${-M.a2<0?'−':'+'} ${Math.abs(M.a2)}y″ + forcing. Last row = (${M.ans.map(neg).join(', ')}): coefficients of x₁, x₂, x₃ in that order.`}
+  $('matScore').textContent=M.score;putSheet('matSheet','systems');$('matCheck').textContent=M.round<5?'Next':'Finish';matDraw()};
+
+/* ---------- 5. Order by Ear ---------- */
+const E={};const METHODS=[['Euler',1],['Modified Euler',2],['RK-3',3],['RK-4',4]];
+function startEar(){Object.assign(E,{round:0,score:0});show('ear');earRound()}
+function earRound(){E.round++;if(E.round>5){if(E.score>=50)earn('ear5');award(E.score,'ear',E.score);return show('home')}E.m=rnd(METHODS);E.done=false;$('earRound').textContent=E.round+' / 5';$('earScore').textContent=E.score;$('earWhy').textContent='';$('earCtx').textContent=`Simulating ${rnd(SIM_CTX)}. Same run each tone, with h halved.`;putSheet('earSheet');
+  const bars=$('bars');bars.innerHTML='';for(let k=0;k<5;k++){const i=document.createElement('i');i.style.height=Math.max(3,100*Math.pow(2,-E.m[1]*k*0.5))+'%';bars.appendChild(i)}
+  const box=$('earAns');box.innerHTML='';METHODS.forEach(m=>{const b=document.createElement('button');b.textContent=m[0];b.onclick=()=>earAnswer(m,b);box.appendChild(b)});setTimeout(earPlay,350)}
+/* each halving of h lowers the pitch by 3 semitones per order: Euler steps down gently, RK-4 drops an octave */
+function earPlay(){const p=E.m[1];[...$('bars').children].forEach((b,k)=>{tone(semi(-3*p*k,880),0.32,'triangle',0.16,k*0.42);setTimeout(()=>{b.classList.add('on');setTimeout(()=>b.classList.remove('on'),330)},k*420)})}
+function earAnswer(m,btn){if(E.done)return;E.done=true;const ok=m===E.m;[...$('earAns').children].forEach(b=>{b.disabled=true;if(b.textContent===E.m[0])b.classList.add('right')});
+  if(ok){E.score+=10;chord();$('earWhy').textContent=`+10. ${E.m[0]} is order ${E.m[1]}: each halving of h divides the error by ${2**E.m[1]}.`}
+  else{btn.classList.add('wrong');sBad();$('earWhy').textContent=`That was ${E.m[0]} (order ${E.m[1]}): each halving divides the error by ${2**E.m[1]}. Bigger drops per step = higher order.`}
+  $('earScore').textContent=E.score;putSheet('earSheet','order');setTimeout(()=>{if(!$('ear').hidden)earRound()},ok?2600:4200)}
+$('earPlay').onclick=earPlay;
+
+/* ---------- 6. Predict It: watch, freeze, predict, then see the real computation ---------- */
+const P={raf:0};
+const PW=1000,PH=640;
+function axesLine(c,x0,y0,x1,y1){c.strokeStyle=css('--muted');c.lineWidth=2;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke()}
+function label(c,t,x,y,col,size=26){c.fillStyle=col||css('--muted');c.font=`${size}px Nunito, sans-serif`;c.fillText(t,x,y)}
+const SCEN=[
+ { // orbit: Euler vs RK4
+  sheet:'rk4',prompt:'🛰️ A satellite in a circular orbit, h = 0.05. Euler (orange) and RK4 (teal) start together. After 3 full orbits, what does Euler\'s path do?',
+  opts:['Spirals outward','Spirals inward','Stays on the circle'],ans:0,f0:0.08,dur:5,
+  why:'Euler drifts out to about twice the orbit radius after 3 orbits; RK4 stays on the circle (error ~0.00003%). Euler is O(h), RK-4 is O(h⁴).',
+  init(){const f=s=>{const r=Math.hypot(s[0],s[1]);return [s[2],s[3],-s[0]/r**3,-s[1]/r**3]};const h=0.05,n=Math.round(6*Math.PI/h);let e=[1,0,0,1],k=[1,0,0,1];this.E=[e.slice(0,2)];this.K=[k.slice(0,2)];
+   const add=(a,b,s)=>a.map((v,i)=>v+s*b[i]);for(let i=0;i<n;i++){e=add(e,f(e),h);const k1=f(k),k2=f(add(k,k1,h/2)),k3=f(add(k,k2,h/2)),k4=f(add(k,k3,h));k=k.map((v,j)=>v+h/6*(k1[j]+2*k2[j]+2*k3[j]+k4[j]));this.E.push(e.slice(0,2));this.K.push(k.slice(0,2))}},
+  draw(c,fr){const cx=500,cy=320,s=120,n=this.E.length-1,i=Math.max(1,Math.round(fr*n));
+   c.setLineDash([8,8]);c.strokeStyle=css('--muted');c.lineWidth=2;c.beginPath();c.arc(cx,cy,s,0,7);c.stroke();c.setLineDash([]);
+   c.fillStyle='#2f6fe0';c.beginPath();c.arc(cx,cy,40,0,7);c.fill();
+   for(const [P_,col] of [[this.K,css('--sea')],[this.E,css('--heat')]]){c.strokeStyle=col;c.lineWidth=5;c.beginPath();P_.slice(0,i+1).forEach((p,j)=>{const X=cx+p[0]*s,Y=cy-p[1]*s;j?c.lineTo(X,Y):c.moveTo(X,Y)});c.stroke();const p=P_[i];c.fillStyle=col;c.beginPath();c.arc(cx+p[0]*s,cy-p[1]*s,11,0,7);c.fill()}
+   label(c,'Euler',30,50,css('--heat'),30);label(c,'RK4',30,90,css('--sea'),30);label(c,'orbit '+Math.min(3,Math.floor(fr*3+1e-9)+ (fr<1?1:0)),840,50)},
+  tick(fr){return 220+Math.hypot(...this.E[Math.round(fr*(this.E.length-1))])*110}},
+ { // stiff explicit
+  sheet:'stab',prompt:'🔋 A battery cell\'s temperature tracks a cyclic heat load: y′ = −50(y − cos t). Explicit Euler, h = 0.045. Here are the first steps. What happens next?',
+  opts:['It settles onto cos t','It swings wider and wider','It decays to zero'],ans:1,f0:0.14,dur:4,
+  why:'G = 1 + λh = 1 − 50(0.045) = −1.25, and |G| > 1, so each step grows and flips sign. Explicit Euler needs h ≤ 2/50 = 0.04 here.',
+  init(){const h=0.045,N=22;this.h=h;this.N=N;let y=0;this.Y=[0];for(let n=0;n<N;n++){y=y+h*(-50)*(y-Math.cos(n*h));this.Y.push(y)}},
+  draw(c,fr){plotTrack(c,this.Y,this.h,this.N,fr,css('--heat'))},tick(fr){const v=this.Y[Math.round(fr*this.N)];return 200+Math.min(4,Math.abs(v))*200}},
+ { // stiff implicit
+  sheet:'eulerimp',prompt:'🔋 The same battery model, y′ = −50(y − cos t), with implicit Euler and a big step, h = 0.2. What happens?',
+  opts:['It blows up even faster','It stays stable and follows cos t','It stops after one step'],ans:1,f0:0.12,dur:4,
+  why:'Implicit Euler: G = 1/(1 − λh) = 1/11, below 1 for any h. That is why stiff problems use implicit methods.',
+  init(){const h=0.2,N=12;this.h=h;this.N=N;let y=0;this.Y=[0];for(let n=0;n<N;n++){y=(y+50*h*Math.cos((n+1)*h))/(1+50*h);this.Y.push(y)}},
+  draw(c,fr){plotTrack(c,this.Y,this.h,this.N,fr,css('--sea'))},tick(fr){return 300+Math.abs(this.Y[Math.round(fr*this.N)])*150}},
+ { // newton flat start
+  sheet:'newton',prompt:'📜 Newton\'s own 1669 test equation, f(x) = x³ − 2x − 5, starting at x⁽⁰⁾ = 0.9, where the curve is nearly flat. Where does the first step land?',
+  opts:['Close to the root, x ≈ 2.09','Far away, past x = 10','Exactly on the root'],ans:1,f0:0.02,dur:5,
+  why:'f′(0.9) = 0.43 is tiny, so the step −f/f′ = 6.07/0.43 ≈ 14 throws x to about 15. Newton then needs many steps to crawl back. Flat spots are dangerous; bisection is the safe fallback.',
+  init(){const f=x=>x*x*x-2*x-5,d=x=>3*x*x-2;let x=0.9;this.X=[x];for(let i=0;i<12;i++){x=x-f(x)/d(x);this.X.push(x)}this.f=f},
+  draw(c,fr){const lo=-2,hi=4,ylo=-14,yhi=16,X=x=>50+(PW-100)*(x-lo)/(hi-lo),Y=y=>PH-50-(PH-140)*(y-ylo)/(yhi-ylo);axesLine(c,50,Y(0),PW-50,Y(0));
+   c.strokeStyle=css('--sea');c.lineWidth=5;c.beginPath();for(let i=0;i<=300;i++){const x=lo+(hi-lo)*i/300;i?c.lineTo(X(x),Y(this.f(x))):c.moveTo(X(x),Y(this.f(x)))}c.stroke();
+   const k=Math.round(fr*(this.X.length-1));const x0=this.X[0];c.fillStyle=css('--heat');c.beginPath();c.arc(X(x0),Y(this.f(x0)),11,0,7);c.fill();
+   if(k>=1){c.strokeStyle=css('--sun');c.lineWidth=4;c.beginPath();c.moveTo(X(x0),Y(this.f(x0)));c.lineTo(PW-50,Y(this.f(x0))+(PW-50-X(x0))*(-(0.43)*((PH-140)/(yhi-ylo))/((PW-100)/(hi-lo))));c.stroke();
+     label(c,'x⁽¹⁾ ≈ '+this.X[1].toFixed(1)+' →',PW-260,Y(0)-20,css('--sun'),30)}
+   label(c,'iterates: '+this.X.slice(0,k+1).map(v=>v.toFixed(2)).join(' → '),30,44,css('--ink'),24)},
+  tick(fr){const v=this.X[Math.round(fr*(this.X.length-1))];return 200+Math.min(16,Math.abs(v))*60}},
+ { // round-off floor
+  sheet:'errplot',prompt:'💻 Modified Euler in single precision. Each dot halves the step size. Keep shrinking Δx toward 10⁻⁶. What does the error do?',
+  opts:['Keeps falling along the line','Levels off, then rises and gets noisy','Drops to exactly zero'],ans:1,f0:0.55,dur:4,
+  why:'Single precision bottoms out near 10⁻⁶ to 10⁻⁷ (machine epsilon ≈ 10⁻⁷). Below that, every extra step adds rounding error. Smaller is not always better.',
+  init(){const f=Math.fround,ex=Math.exp(-3);const run=N=>{const h=f(1/N);let y=f(1),x=f(0);const F=(x,y)=>f(f(-6*x)*y);for(let i=0;i<N;i++){const k1=F(x,y),k2=F(f(x+h),f(y+f(h*k1)));y=f(y+f(h*f(f(k1+k2)/2)));x=f(f(i+1)*h)}return y};
+   this.D=[];for(let k=1;k<=20;k++){const N=2**k;this.D.push([1/N,Math.abs(run(N)-ex)/ex])}},
+  draw(c,fr){const X=h=>80+(PW-120)*(Math.log10(h)+6.5)/7,Y=e=>PH-60-(PH-110)*(Math.log10(e)+8)/9;axesLine(c,80,PH-60,PW-40,PH-60);axesLine(c,80,50,80,PH-60);
+   label(c,'error',90,44);label(c,'step size Δx →',PW-260,PH-20);
+   const n=Math.max(1,Math.round(fr*this.D.length));c.strokeStyle=css('--sun');c.lineWidth=4;c.beginPath();this.D.slice(0,n).forEach((p,i)=>i?c.lineTo(X(p[0]),Y(p[1])):c.moveTo(X(p[0]),Y(p[1])));c.stroke();
+   this.D.slice(0,n).forEach((p,i)=>{c.fillStyle=i>=11?css('--stop'):css('--sun');c.beginPath();c.arc(X(p[0]),Y(p[1]),9,0,7);c.fill()})},
+  tick(fr){const p=this.D[Math.min(this.D.length-1,Math.round(fr*(this.D.length-1)))];return 120+(Math.log10(p[1])+8)*90}},
+ { // trapezoid vs simpson
+  sheet:'simp13',prompt:'🚁 A drone\'s battery power, logged at 7 equally spaced times. Which estimate of the energy (area under the curve) is closer to the truth?',
+  opts:['Trapezoids','Simpson\'s 1/3','They are equally good'],ans:1,f0:0.0,dur:4,
+  why:'Trapezoids miss by 1.0%; Simpson\'s 1/3 by 0.08%. Parabolas through each 3 points hug the curve. 6 intervals (even) allows Simpson\'s 1/3.',
+  init(){this.P=t=>2.2+3.2*Math.exp(-0.9*t)+0.9*Math.exp(-((t-4.6)**2)/2.5)},
+  draw(c,fr){const X=t=>70+(PW-110)*t/6,Y=p=>PH-60-(PH-120)*p/6.2,P_=this.P;axesLine(c,70,PH-60,PW-40,PH-60);axesLine(c,70,40,70,PH-60);
+   const ts=[0,1,2,3,4,5,6],ys=ts.map(P_);
+   if(fr>0.05){c.fillStyle='rgba(240,130,40,.35)';for(let i=0;i<6;i++){c.beginPath();c.moveTo(X(ts[i]),Y(0));c.lineTo(X(ts[i]),Y(ys[i]));c.lineTo(X(ts[i+1]),Y(ys[i+1]));c.lineTo(X(ts[i+1]),Y(0));c.fill()}label(c,'Trapezoids: 1.0% error',90,40,css('--heat'),30)}
+   if(fr>0.5){c.fillStyle='rgba(39,179,179,.45)';for(let i=0;i<6;i+=2){const [t0,t1,t2]=[ts[i],ts[i+1],ts[i+2]],[a,b,d]=[ys[i],ys[i+1],ys[i+2]];c.beginPath();c.moveTo(X(t0),Y(0));for(let u=0;u<=30;u++){const t=t0+2*u/30,L0=(t-t1)*(t-t2)/2,L1=-(t-t0)*(t-t2),L2=(t-t0)*(t-t1)/2;c.lineTo(X(t),Y(a*L0+b*L1+d*L2))}c.lineTo(X(t2),Y(0));c.fill()}label(c,'Simpson\'s 1/3: 0.08% error',90,80,css('--sea'),30)}
+   c.strokeStyle=css('--sun');c.lineWidth=5;c.beginPath();for(let i=0;i<=200;i++){const t=6*i/200;i?c.lineTo(X(t),Y(P_(t))):c.moveTo(X(t),Y(P_(t)))}c.stroke();
+   ts.forEach(t=>{c.fillStyle=css('--ink');c.beginPath();c.arc(X(t),Y(P_(t)),9,0,7);c.fill()})},
+  tick(fr){return 300+fr*300}}
+,{ // Runge: interpolating noisy data
+  sheet:'polyfit',prompt:'🔩 Strain-gauge calibration: 11 noisy readings along a straight trend. You force one polynomial through every point (order 10). Between the points, the curve…',
+  opts:['Follows the trend smoothly','Swings wildly, worst near the ends','Is a straight line'],ans:1,f0:0.12,dur:4,
+  why:'An order-10 polynomial must hit every noisy point, so it overshoots between them, worst near the ends. Noisy data calls for regression (teal line), not interpolation.',
+  init(){this.xs=[...Array(11)].map((_,i)=>i);const nz=[0.12,-0.25,0.18,-0.05,0.22,-0.2,0.08,0.25,-0.18,0.1,-0.22];this.ys=this.xs.map((x,i)=>0.5*x+1+nz[i]);
+   const xs=this.xs,ys=this.ys;this.L=x=>xs.reduce((s,xi,i)=>s+ys[i]*xs.reduce((p,xj,j)=>j===i?p:p*(x-xj)/(xi-xj),1),0);
+   const n=11,Sx=xs.reduce((a,b)=>a+b),Sy=ys.reduce((a,b)=>a+b),Sxx=xs.reduce((a,x)=>a+x*x,0),Sxy=xs.reduce((a,x,i)=>a+x*ys[i],0);this.a1=(n*Sxy-Sx*Sy)/(n*Sxx-Sx*Sx);this.a0=(Sxx*Sy-Sxy*Sx)/(n*Sxx-Sx*Sx)},
+  draw(c,fr){const X=x=>70+(PW-110)*x/10,Y=v=>PH-60-(PH-120)*(v+3)/10;axesLine(c,70,PH-60,PW-40,PH-60);axesLine(c,70,40,70,PH-60);label(c,'strain gauge output',80,34);
+   if(fr>this.f0){const u=Math.min(1,(fr-this.f0)/(0.75-this.f0));c.strokeStyle=css('--heat');c.lineWidth=5;c.beginPath();for(let i=0;i<=400*u;i++){const x=10*i/400,v=Math.max(-3,Math.min(7,this.L(x)));i?c.lineTo(X(x),Y(v)):c.moveTo(X(x),Y(v))}c.stroke();label(c,'order-10 interpolation',PW-360,80,css('--heat'),28)}
+   if(fr>0.78){c.strokeStyle=css('--sea');c.lineWidth=5;c.beginPath();c.moveTo(X(0),Y(this.a0));c.lineTo(X(10),Y(this.a0+10*this.a1));c.stroke();label(c,'linear regression',PW-360,120,css('--sea'),28)}
+   this.xs.forEach((x,i)=>{c.fillStyle=css('--ink');c.beginPath();c.arc(X(x),Y(this.ys[i]),10,0,7);c.fill()})},
+  tick(fr){return 300+Math.max(-3,Math.min(7,this.L(10*Math.min(1,fr))))*60}},
+ { // noisy finite differences
+  sheet:'fd_interior2',prompt:'🏎️ GPS positions of an accelerating car (noise ±5 cm). Velocity by central differences with spacing h = 0.5 s. Now h shrinks to 0.1 s, then 0.02 s. The velocity estimate…',
+  opts:['Gets closer to the true line','Gets noisier','Stays the same'],ans:1,f0:0.3,dur:4.5,
+  why:'Each estimate divides the GPS noise by 2h: ±5 cm ÷ 0.04 s ≈ ±1 m/s or more. A smaller h cuts truncation error but amplifies noise. Smooth or fit noisy data before differentiating.',
+  init(){const r=seeded(4242);this.sets=[0.5,0.1,0.02].map(h=>{const n=Math.round(4/h),x=[...Array(n+1)].map((_,i)=>1.5*(i*h)**2+0.05*(2*r()-1));const pts=[];for(let i=1;i<n;i++)pts.push([i*h,(x[i+1]-x[i-1])/(2*h)]);return [h,pts]})},
+  draw(c,fr){const X=t=>70+(PW-110)*t/4,Y=v=>PH-60-(PH-120)*(v+3)/18;axesLine(c,70,PH-60,PW-40,PH-60);axesLine(c,70,40,70,PH-60);label(c,'velocity (m/s)',80,34);label(c,'time →',PW-140,PH-20);
+   c.setLineDash([8,8]);c.strokeStyle=css('--muted');c.lineWidth=3;c.beginPath();c.moveTo(X(0),Y(0));c.lineTo(X(4),Y(12));c.stroke();c.setLineDash([]);label(c,'- - true v = 3t',PW-270,80);
+   const k=fr<=0.3?0:fr<0.65?1:2,u=k===0?fr/0.3:k===1?(fr-0.3)/0.35:(fr-0.65)/0.35,[h,pts]=this.sets[k];
+   c.fillStyle=[css('--go'),css('--sun'),css('--stop')][k];pts.slice(0,Math.max(1,Math.round(pts.length*Math.min(1,u)))).forEach(([t,v])=>{c.beginPath();c.arc(X(t),Y(Math.max(-3,Math.min(15,v))),k===2?5:8,0,7);c.fill()});
+   label(c,'h = '+h+' s',90,80,[css('--go'),css('--sun'),css('--stop')][k],34)},
+  tick(fr){const k=fr<=0.3?0:fr<0.65?1:2;return [330,440,660][k]+Math.random()*(k*120)}}
+];
+function plotTrack(c,Yv,h,N,fr,col){const T=N*h,X=t=>70+(PW-110)*t/T,Y=v=>PH/2-v*(PH/2-50)/3.2;axesLine(c,70,Y(0),PW-40,Y(0));
+  c.setLineDash([8,8]);c.strokeStyle=css('--muted');c.lineWidth=3;c.beginPath();for(let i=0;i<=200;i++){const t=T*i/200;i?c.lineTo(X(t),Y(Math.cos(t))):c.moveTo(X(t),Y(Math.cos(t)))}c.stroke();c.setLineDash([]);
+  label(c,'- - cos t',PW-170,40);const k=Math.max(1,Math.round(fr*N));c.strokeStyle=col;c.fillStyle=col;c.lineWidth=5;c.beginPath();
+  for(let i=0;i<=k;i++){const v=Math.max(-3.1,Math.min(3.1,Yv[i]));i?c.lineTo(X(i*h),Y(v)):c.moveTo(X(i*h),Y(v))}c.stroke();
+  for(let i=0;i<=k;i++){const v=Math.max(-3.1,Math.min(3.1,Yv[i]));c.beginPath();c.arc(X(i*h),Y(v),8,0,7);c.fill()}
+  if(Yv.slice(0,k+1).some(v=>Math.abs(v)>3.1))label(c,'BLOWS UP',PW/2-90,70,css('--stop'),44)}
+function startPredict(){Object.assign(P,{order:shuffle(SCEN.map((_,i)=>i)).slice(0,6),i:0,score:0});show('predict');prRound()}
+function prDraw(fr){const c=$('pv').getContext('2d');c.clearRect(0,0,PW,PH);P.s.draw(c,fr)}
+function prAnimate(from,to,dur,done){const t0=performance.now();let lastTick=-1;cancelAnimationFrame(P.raf);
+  const step=now=>{const u=Math.min(1,(now-t0)/(dur*1000)),fr=from+(to-from)*u;prDraw(fr);const tk=Math.floor(fr*24);if(tk!==lastTick&&u>0){lastTick=tk;tone(P.s.tick(fr),0.08,'triangle',0.07)}
+    if(u<1)P.raf=requestAnimationFrame(step);else{P.raf=0;done&&done()}};P.raf=requestAnimationFrame(step)}
+function prRound(){if(P.i>=P.order.length){if(P.score>=60)earn('seer');award(P.score,'predict',P.score);return show('home')}
+  P.s=SCEN[P.order[P.i]];if(!P.s.ready){P.s.init();P.s.ready=true}P.done=false;$('prRound').textContent=`${P.i+1} / ${P.order.length}`;putSheet('prSheet');$('prScore').textContent=P.score;$('prPrompt').textContent=P.s.prompt;$('prWhy').textContent='';$('prNext').hidden=true;
+  const box=$('prOpts');box.innerHTML='';P.s.opts.forEach((o,k)=>{const b=document.createElement('button');b.textContent=o;b.disabled=true;b.onclick=()=>prPick(k,b);box.appendChild(b)});
+  prAnimate(0,P.s.f0,Math.max(0.6,P.s.f0*3),()=>{[...box.children].forEach(b=>b.disabled=false);$('prWhy').textContent='Frozen. Make your prediction.'})}
+function prPick(k,btn){if(P.done)return;P.done=true;const ok=k===P.s.ans;[...$('prOpts').children].forEach((b,j)=>{b.disabled=true;if(j===P.s.ans)b.classList.add('right')});if(!ok)btn.classList.add('wrong');
+  $('prWhy').textContent=ok?'Locked in. Watch.':'Locked in. Watch what really happens.';
+  prAnimate(P.s.f0,1,P.s.dur,()=>{if(ok){P.score+=10;chord()}else sBad();$('prScore').textContent=P.score;$('prWhy').textContent=(ok?'+10. ':'')+P.s.why;$('prNext').hidden=false;putSheet('prSheet',P.s.sheet);$('prNext').textContent=P.i+1<P.order.length?'Next':'Finish'})}
+$('prNext').onclick=()=>{P.i++;prRound()};
+
+show('home');
+</script>
+
+</body></html>
