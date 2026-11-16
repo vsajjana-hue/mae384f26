@@ -357,7 +357,7 @@ document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{track('start/'+
 const DAY=864e5,GAPS=[1,3,7];
 function cbList(){try{return JSON.parse(store.get('cb')||'[]')}catch(e){return []}}
 function cbSave(l){store.set('cb',JSON.stringify(l.slice(-60)))}
-function cbAdd(q){const l=cbList().filter(x=>x.q.q!==q.q);l.push({q:{tag:q.tag,q:q.q,a:q.a,opts:q.opts,why:q.why,sheet:q.sheet},box:0,due:Date.now()+DAY});cbSave(l)}
+function cbAdd(q){const l=cbList().filter(x=>x.q.q!==q.q);l.push({q:{tag:q.tag,q:q.q,a:q.a,alt:q.alt,opts:q.opts,why:q.why,sheet:q.sheet},box:0,due:Date.now()+DAY});cbSave(l)}
 function cbDue(){const n=Date.now();return cbList().filter(x=>x.due<=n)}
 function cbNext(){const l=cbList();if(!l.length)return '';const d=Math.ceil((Math.min(...l.map(x=>x.due))-Date.now())/DAY);return d<=1?'tomorrow':`in ${d} days`}
 function cbResult(q,ok){const l=cbList(),i=l.findIndex(x=>x.q.q===q.q);if(i<0)return;if(ok){l[i].box++;if(l[i].box>=GAPS.length){l.splice(i,1);earn('comeback')}else l[i].due=Date.now()+GAPS[l[i].box]*DAY}else{l[i].box=0;l[i].due=Date.now()+DAY}cbSave(l)}
@@ -376,7 +376,7 @@ function startDaily(){const done=store.get('daily_'+dayKey());if(done){showShare
 function startComeback(){const l=cbDue();if(!l.length)return;Object.assign(Q,{mode:'comeback',list:l.map(x=>({...x.q,opts:shuffle(x.q.opts)})),i:0,right:0,grid:[]});$('qzTitle').textContent='Comeback';show('quiz');qzAsk()}
 function qzAsk(){const q=Q.list[Q.i];Q.lock=false;$('qzProg').textContent=`${Q.i+1} / ${Q.list.length}`;$('qzScore').textContent=Q.right;$('qzCard').className='card';$('qzTag').textContent=q.tag;$('qzQ').innerHTML=q.q;$('qzWhy').textContent='';putSheet('qzSheet');$('qzNext').hidden=true;
   const box=$('qzAns');box.innerHTML='';q.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>qzAnswer(o,b);box.appendChild(b)})}
-function qzAnswer(o,btn){if(Q.lock)return;Q.lock=true;const q=Q.list[Q.i],ok=o===q.a;[...$('qzAns').children].forEach(b=>{b.disabled=true;if(b.textContent===q.a)b.classList.add('right')});
+function qzAnswer(o,btn){if(Q.lock)return;Q.lock=true;const q=Q.list[Q.i],ok=o===q.a||(q.alt||[]).includes(o);[...$('qzAns').children].forEach(b=>{b.disabled=true;if(b.textContent===q.a||(q.alt||[]).includes(b.textContent))b.classList.add('right')});
   Q.grid.push(ok?1:0);if(ok){Q.right++;sGood(Q.right);$('qzCard').classList.add('good')}else{btn.classList.add('wrong');sBad();$('qzCard').classList.add('bad');track('miss/'+q.tag);if(Q.mode==='daily')cbAdd(q)}
   if(Q.mode==='comeback')cbResult(q,ok);$('qzWhy').textContent=q.why;putSheet('qzSheet',q.sheet);$('qzScore').textContent=Q.right;$('qzNext').hidden=false;$('qzNext').textContent=Q.i+1<Q.list.length?'Next':'Finish'}
 $('qzNext').onclick=()=>{Q.i++;if(Q.i<Q.list.length)return qzAsk();
@@ -390,10 +390,10 @@ $('copyBtn').onclick=()=>{const t=$('shareBox').textContent;const sel=()=>{const
 
 /* ---------- the equation-sheet line behind every answer ---------- */
 const SHEET={
- simp13:['Module 6 · Simpson 1/3','I ≈ (h/3)[f₁ + 4f₂ + 2f₃ + 4f₄ + … + 2f_{N−1} + 4f_N + f_{N+1}],  N even'],
- simp38:['Module 6 · Simpson 3/8','I ≈ (3h/8)[f₁ + 3f₂ + 3f₃ + 2f₄ + … + 3f_N + f_{N+1}],  N a multiple of 3'],
+ simp13:['Module 6 · Simpson 1/3','I ≈ (h/3)[f₁ + 4f₂ + 2f₃ + 4f₄ + … + 4f(x_N) + f(x_N+1)],  N even'],
+ simp38:['Module 6 · Simpson 3/8','I ≈ (3h/8)[f₁ + 3f₂ + 3f₃ + 2f₄ + … + 3f(x_N) + f(x_N+1)],  N a multiple of 3'],
  simpmix:['Module 6 · Simpson 1/3 + 3/8','Odd N, not a multiple of 3: Simpson 1/3 on the first N − 3 intervals + Simpson 3/8 on the last 3'],
- trap:['Module 6 · Trapezoid','I ≈ (h/2)[f₁ + 2f₂ + 2f₃ + … + 2f_N + f_{N+1}],  second order'],
+ trap:['Module 6 · Trapezoid','I ≈ (h/2)[f₁ + 2f₂ + 2f₃ + … + 2f(x_N) + f(x_N+1)],  second order'],
  fd_first1:['Module 5 · Two-point forward','f′(xᵢ) ≈ [f(xᵢ₊₁) − f(xᵢ)] / h,  O(h)'],
  fd_first2:['Module 5 · Three-point forward','f′(xᵢ) ≈ [−3f(xᵢ) + 4f(xᵢ₊₁) − f(xᵢ₊₂)] / (2h),  O(h²)'],
  fd_last1:['Module 5 · Two-point backward','f′(xᵢ) ≈ [f(xᵢ) − f(xᵢ₋₁)] / h,  O(h)'],
@@ -407,7 +407,7 @@ const SHEET={
  pivot:['Not on the sheet · Module 2','Gauss elimination with partial pivoting: swap rows so the pivot is the largest |entry| in its column','off'],
  pow:['Module 4 · Transform table','y = b xᵐ  →  regress ln y on ln x;   m = a₁,  b = e^{a₀}'],
  exp:['Module 4 · Transform table','y = b e^{mx}  →  regress ln y on x;   m = a₁,  b = e^{a₀}'],
- interp:['Module 4 · Lagrange / splines','Exact data: pass through every point. Lagrange Lᵢ(x) = Π_{j≠i} (x − xⱼ)/(xᵢ − xⱼ)'],
+ interp:['Module 4 · Lagrange / splines','Exact data: pass through every point. Lagrange Lᵢ(x) = product over j ≠ i of (x − xⱼ)/(xᵢ − xⱼ)'],
  polyfit:['Module 4 · Regression vs. interpolation','Interpolation (order n − 1): X a = y.   Regression (order m < n − 1): XᵀX a = Xᵀy'],
  eulerexp:['Module 7 · Euler explicit','yᵢ₊₁ = yᵢ + h f(xᵢ, yᵢ)'],
  eulerimp:['Module 7 · Euler implicit','yᵢ₊₁ = yᵢ + h f(xᵢ₊₁, yᵢ₊₁)   (f at the new point: solve for yᵢ₊₁)'],
@@ -440,16 +440,19 @@ const STAB_CTX=[['🌡️ Thermocouple bead cooling','θ′ = −λθ'],['⚡ RC
 const SIM_CTX=['🛰️ a satellite orbit','🚀 a rocket ascent','🌉 a bridge deck vibration','🔋 a battery temperature model','🏀 a projectile with drag','🌊 a draining tank'];
 const gens=[
  ()=>{const s=5+Math.floor(Math.random()*24),N=s-1;const a=N%2==0?S13:(N%3==0?S38:SMIX);
-   const why=N%2==0?`${s} samples = ${N} intervals, even → Simpson's 1/3.`:(N%3==0?`${s} samples = ${N} intervals: odd, but a multiple of 3 → Simpson's 3/8.`:`${s} samples = ${N} intervals: odd and not a multiple of 3 → split 1/3 + 3/8.`);
-   return {tag:'Integration',q:rnd(INT_CTX)(s),a,opts:[S13,S38,SMIX,TRAP],why,sheet:N%2==0?'simp13':N%3==0?'simp38':'simpmix'}},
+   const both=N%2==0&&N%3==0;const why=both?`${s} samples = ${N} intervals: even and a multiple of 3, so Simpson's 1/3 and Simpson's 3/8 are both fourth order and both correct. Simpson's 1/3 is the usual pick: for the same h its error is about 2.25 times smaller.`:N%2==0?`${s} samples = ${N} intervals, even → Simpson's 1/3.`:(N%3==0?`${s} samples = ${N} intervals: odd, but a multiple of 3 → Simpson's 3/8.`:`${s} samples = ${N} intervals: odd and not a multiple of 3 → split 1/3 + 3/8.`);
+   return {tag:'Integration',q:rnd(INT_CTX)(s),a,opts:[S13,S38,SMIX,TRAP],why,sheet:N%2==0?'simp13':N%3==0?'simp38':'simpmix',alt:both?[S38]:[]}},
  ()=>{const pos=rnd(['first','last','interior']),o=pos=='interior'?rnd([2,4]):rnd([1,2]);const c=rnd(FD_CTX);
    const map={first1:'Two-point forward',first2:'Three-point forward',last1:'Two-point backward',last2:'Three-point backward',interior2:'Two-point central',interior4:'Four-point central'};
-   const a=map[pos+o];return {tag:'Derivatives',q:`${c[0]} ${c[1]} at the ${pos=='interior'?'middle':pos} reading with error O(h${o>1?'<sup>'+o+'</sup>':''}). Which formula?`,a,opts:shuffle(Object.values(map).filter(x=>x!=a)).slice(0,3).concat(a),why:`${pos=='first'?'No data before it → forward':pos=='last'?'No data after it → backward':'Data on both sides → central'}; the order sets how many points.`,sheet:'fd_'+pos+o}},
+   const a=map[pos+o];const META={first1:['f',1],first2:['f',2],last1:['b',1],last2:['b',2],interior2:['c',2],interior4:['c',4]};
+   const valid=k=>{const [side,ord]=META[k];const ok=pos==='interior'||(pos==='first'&&side==='f')||(pos==='last'&&side==='b');return ok&&ord>=o};
+   const wrong=Object.keys(map).filter(k=>map[k]!==a&&!valid(k)).map(k=>map[k]);
+   return {tag:'Derivatives',q:`${c[0]} ${c[1]} at the ${pos=='interior'?'middle':pos} reading, using the formula whose error is O(h${o>1?'<sup>'+o+'</sup>':''}). Which one?`,a,opts:shuffle(wrong).slice(0,3).concat(a),why:`${pos=='first'?'No data before it → forward':pos=='last'?'No data after it → backward':'Data on both sides → central'}; the order sets how many points.`,sheet:'fd_'+pos+o}},
  ()=>{const c=rnd([[1,1e-3],[2,1e-3],[4,1e-2],[1,1e-4],[10,1e-2],[3,1e-3],[20,0.01],[8,0.05]]),r=c[0]/(2*c[1]),n=Math.ceil(Math.log2(r)-1e-9);
    return {tag:'Root finding',q:rnd(BIS_CTX)(c[0],c[1]),a:String(n),opts:[n-1,n,n+1,n+2].map(String),why:`n = ⌈log₂(${c[0]}/(2·${c[1]}))⌉ = ⌈log₂ ${+r.toFixed(2)}⌉ = ${n}.`,sheet:'bisect'}},
  ()=>{const l=rnd([10,20,40,50,100,200]),h=2/l,c=rnd(STAB_CTX);return {tag:'Stability',q:`${c[0]}: ${c[1].replace('λ',l)}. Explicit Euler: largest stable step h?`,a:String(h),opts:[h/2,h,2*h,4*h].map(x=>String(+x.toFixed(4))),why:`Need |1 + λh| ≤ 1 → h ≤ 2/|λ| = 2/${l} = ${h}.`,sheet:'stab'}},
  ()=>{const m=rnd([['Euler',1],['Modified Euler',2],['RK-3',3],['RK-4',4]]);return {tag:'Order',q:`You simulate ${rnd(SIM_CTX)} with ${m[0]}, then halve h. The error shrinks by about…`,a:'÷ '+2**m[1],opts:['÷ 2','÷ 4','÷ 8','÷ 16'],why:`Order p = ${m[1]} → error ÷ 2^p = ${2**m[1]}.`,sheet:'order'}},
- ()=>{const p=rnd([1,2,4]),d=rnd([0.012,0.03,0.006]),e=d/(2**p-1);const f=x=>x.toFixed(4);
+ ()=>{const p=rnd([1,2,4]),d=rnd([0.012,0.03,0.006]),e=d/(2**p-1);const f=x=>x.toPrecision(2);
    return {tag:'Error estimate',q:`You simulate ${rnd(SIM_CTX)} with an order-${p} method: |y₂ₕ − yₕ| = ${d}. Estimated error of the step-h result?`,a:f(e),opts:[...new Set([f(e),f(d),f(d/2**p),f(d/(2**p+1)),f(d*2)])].slice(0,4),why:`e = |y₂ₕ − yₕ|/(2^p − 1) = ${d}/${2**p-1}.`,sheet:'errest'}},
  ()=>{const q=rnd(FIXED);return {...q,q:Array.isArray(q.q)?rnd(q.q):q.q}},()=>{const q=rnd(FIXED);return {...q,q:Array.isArray(q.q)?rnd(q.q):q.q}},()=>{const q=rnd(FIXED);return {...q,q:Array.isArray(q.q)?rnd(q.q):q.q}}
 ];
@@ -457,7 +460,7 @@ const F=(tag,q,a,others,why,sheet)=>({tag,q,a,opts:[a,...others],why,sheet});
 const FIXED=[
  F('Clue word',['🌬️ Noisy wind-tunnel data: drag D = b·Vᵐ. Find b and m.','🔩 Noisy creep-test data: strain rate ε̇ = b·σᵐ. Find b and m.','🚁 Noisy rotor data: thrust T = b·ωᵐ. Find b and m.'],'Log both, then linear regression',['Lagrange interpolation','Log y only, then regression','Cubic splines'],'Noisy → regression. Power law → ln y vs ln x.','pow'),
  F('Clue word',['🔋 Noisy discharge data: V = b·e^(mt). Find b and m.','☕ Noisy cooling-curve data: ΔT = b·e^(mt). Find b and m.','🛬 Noisy brake-test data: speed v = b·e^(mt). Find b and m.'],'Log y only, then linear regression',['Log both, then regression','Polynomial interpolation','Newton\'s method'],'Exponential → ln y vs x.','exp'),
- F('Clue word',['♨️ Steam-table values at 100 °C and 120 °C; you need 112 °C.','🌍 Standard-atmosphere table at 5 km and 6 km; you need 5.4 km.','✈️ Tabulated lift coefficients at 4° and 6°; you need 5°.'],'Interpolation (Lagrange or spline)',['Linear regression','Simpson\'s 1/3','Bisection'],'Exact table values → pass through them.','interp'),
+ F('Clue word',['♨️ Steam-table values at 100 °C and 120 °C; you need 112 °C.','🌍 Standard-atmosphere table at 5 km and 6 km; you need 5.4 km.','✈️ Tabulated lift coefficients at 4° and 6°; you need 5°.'],'Interpolation (Lagrange or spline)',['Simpson\'s 1/3','Bisection','Euler\'s method'],'Exact table values → pass through them.','interp'),
  F('Clue word',['🔋 Battery thermal model with a cooling rate of −5000 s⁻¹. Long run, must be fast.','🔥 Combustion chemistry: rates from −1 to −10⁶ s⁻¹. Long run.','⚡ Circuit with a tiny parasitic capacitor (rate −10⁵ s⁻¹). Long run.'],'Implicit Euler',['Explicit Euler','RK-4','Midpoint'],'Stiff → implicit: stable at any h.','eulerimp'),
  F('Clue word',['🛰️ Satellite orbit, non-stiff, fourth-order accuracy.','🏀 Projectile with drag, smooth and non-stiff, fourth order.','🚀 Rocket ascent, non-stiff, fourth-order accuracy.'],'Classical RK-4',['Modified Euler','Simpson\'s 1/3','Implicit Euler'],'Fourth-order ODE solver = RK-4.','rk4'),
  F('Clue word',['🔥 When does a cooling blade hit 600 °C? The bound must be guaranteed.','🚰 Valve angle for a target flow is bracketed; error must be guaranteed.'],'Bisection',['Newton','Secant','Regression'],'Guarantee → bisection.','bisect'),
@@ -466,7 +469,7 @@ const FIXED=[
  F('Clue word',['🌉 Two coupled nonlinear equations for a truss joint\'s position.','🔧 Equilibrium of two nonlinear springs: two coupled equations.'],'Newton for systems',['Bisection twice','Gauss elimination only','Linear regression'],'Jacobian, solve AΔx = −f, update.','newtonsys'),
  F('Clue word',['🌉 Truss force equations with a zero on the diagonal.','⚡ Circuit node equations: the first pivot is 0.'],'Gauss elimination with partial pivoting',['Gauss elimination, no pivoting','Newton\'s method','Secant method'],'Zero pivot → swap rows first.','pivot'),
  F('Implicit Euler',['🛰️ Implicit Euler on radiative cooling T′ = −k T⁴. How do you get Tᵢ₊₁?','Implicit Euler on y′ = x − y³. How do you get yᵢ₊₁?'],'Newton on g(y) = 0',['Rearrange with algebra','Use the explicit value','Simpson\'s rule'],'Nonlinear f → root finding each step.','eulerimp'),
- F('Implicit Euler',['☕ Implicit Euler on Newton cooling T′ = −k(T − 20). How do you get Tᵢ₊₁?','Implicit Euler on y′ = 2x − 3y. How do you get yᵢ₊₁?'],'Rearrange with algebra',['Newton on g(y) = 0','Bisection','RK-4'],'Linear f → collect yᵢ₊₁ and divide.','eulerimp'),
+ F('Implicit Euler',['☕ Implicit Euler on Newton cooling T′ = −k(T − 20). How do you get Tᵢ₊₁?','Implicit Euler on y′ = 2x − 3y. How do you get yᵢ₊₁?'],'Rearrange with algebra (no iteration needed)',['Use the explicit Euler value','Simpson\'s rule','RK-4'],'Linear f → collect yᵢ₊₁ and divide.','eulerimp'),
  F('Error plot','Error floor near 10⁻⁷, then it rises. Precision?','Single',['Double','Half','Quadruple'],'Floor ≈ machine epsilon: single ≈ 10⁻⁷.','eps'),
  F('Error plot','Log–log error plot, straight part has slope 2.','Modified Euler (RK2)',['Euler','RK-4','RK-3'],'Slope = order.','errplot'),
  F('Error plot','Error rises and turns jagged at tiny steps. Why?','Round-off error',['Truncation error','Instability','Wrong method'],'More steps → more rounding errors piling up.','errplot'),
@@ -485,8 +488,8 @@ const mult=()=>R.streak>=10?4:R.streak>=6?3:R.streak>=3?2:1;
 function hud(){MUS.intense=R.t<10&&R.t>0;const sec=Math.ceil(R.t);if(sec<=5&&sec>0&&sec!==R.lastSec){sTick(sec<=3)}R.lastSec=sec;$('score').textContent=R.score;$('mult').textContent='×'+mult();$('mult').className='pill'+(mult()>1?' hot':'');$('streak').textContent='streak '+R.streak;$('time').textContent=Math.ceil(R.t);$('timebar').style.width=(R.t/60*100)+'%'}
 function ask(){R.q=nextQ();R.lock=false;$('card').className='card';$('tag').textContent=R.q.tag;$('q').innerHTML=R.q.q;$('why').textContent='';putSheet('rushSheet');
   const box=$('answers');box.innerHTML='';R.q.opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>answer(o,b);box.appendChild(b)})}
-function answer(o,btn){if(R.lock||R.t<=0)return;R.lock=true;R.total++;const ok=o===R.q.a;
-  [...$('answers').children].forEach(b=>{b.disabled=true;if(b.textContent===R.q.a)b.classList.add('right')});
+function answer(o,btn){if(R.lock||R.t<=0)return;R.lock=true;R.total++;const ok=o===R.q.a||(R.q.alt||[]).includes(o);
+  [...$('answers').children].forEach(b=>{b.disabled=true;if(b.textContent===R.q.a||(R.q.alt||[]).includes(b.textContent))b.classList.add('right')});
   if(ok){R.streak++;R.best=Math.max(R.best,R.streak);R.right++;const m0=mult();R.score+=100*mult();if(mult()>m0)sPower(mult()*2);$('card').classList.add('good');sGood(R.streak);if(R.streak>=10)earn('streak10');hud();setTimeout(ask,380)}
   else{btn.classList.add('wrong');R.missed.push(R.q);cbAdd(R.q);track('miss/'+R.q.tag);R.streak=0;R.t=Math.max(0,R.t-3);$('card').classList.add('bad');$('why').textContent=R.q.why;putSheet('rushSheet',R.q.sheet);sBad();hud();setTimeout(()=>{if(R.t>0&&!$('rush').hidden)ask()},2300)}}
 function endRush(){clearInterval(R.iv);MUS.intense=false;if($('rush').hidden)return;tone(98,0.5,'sawtooth',0.12);setTimeout(sFanfare,500);const best=store.num('b_rush');award(Math.round(R.score/50),'rush',R.score);show('results');$('finalScore').textContent=R.score;const acc=R.total?Math.round(R.right/R.total*100):0;
@@ -577,7 +580,7 @@ $('matCheck').onclick=()=>{if(M.done){matRound();return}M.done=true;const ok=M.f
 const E={};const METHODS=[['Euler',1],['Modified Euler',2],['RK-3',3],['RK-4',4]];
 function startEar(){Object.assign(E,{round:0,score:0});show('ear');earRound()}
 function earRound(){E.round++;if(E.round>5){if(E.score>=50)earn('ear5');award(E.score,'ear',E.score);return show('home')}E.m=rnd(METHODS);E.done=false;$('earRound').textContent=E.round+' / 5';$('earScore').textContent=E.score;$('earWhy').textContent='';$('earCtx').textContent=`Simulating ${rnd(SIM_CTX)}. Same run each tone, with h halved.`;putSheet('earSheet');
-  const bars=$('bars');bars.innerHTML='';for(let k=0;k<5;k++){const i=document.createElement('i');i.style.height=Math.max(3,100*Math.pow(2,-E.m[1]*k*0.5))+'%';bars.appendChild(i)}
+  const bars=$('bars');bars.innerHTML='';for(let k=0;k<5;k++){const i=document.createElement('i');i.style.height=Math.max(4,96-4.8*E.m[1]*k)+'%';bars.appendChild(i)}
   const box=$('earAns');box.innerHTML='';METHODS.forEach(m=>{const b=document.createElement('button');b.textContent=m[0];b.onclick=()=>earAnswer(m,b);box.appendChild(b)});setTimeout(earPlay,350)}
 /* each halving of h lowers the pitch by 3 semitones per order: Euler steps down gently, RK-4 drops an octave */
 function earPlay(){const p=E.m[1];[...$('bars').children].forEach((b,k)=>{tone(semi(-3*p*k,880),0.32,'triangle',0.16,k*0.42);setTimeout(()=>{b.classList.add('on');setTimeout(()=>b.classList.remove('on'),330)},k*420)})}
